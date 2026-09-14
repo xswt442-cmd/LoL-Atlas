@@ -39,6 +39,7 @@ export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchP
   const [tab, setTab] = useState(initial.tab);
   const [query, setQuery] = useState(initial.query);
   const [selectedId, setSelectedId] = useState(initial.id);
+  const [championRole, setChampionRole] = useState<string | null>(null);
   const [builderItemIds, setBuilderItemIds] = useState<string[]>(initial.itemIds);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -84,22 +85,39 @@ export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchP
     );
   }, [data, query]);
 
-  const selected = useMemo(
-    () => data?.champions.find((champion) => champion.key === selectedId) ?? champions[0] ?? null,
-    [champions, data, selectedId],
+  const roleCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const champion of champions) {
+      for (const tag of champion.tags_zh ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    return counts;
+  }, [champions]);
+
+  const visibleChampions = useMemo(
+    () => (championRole
+      ? champions.filter((champion) => (champion.tags_zh ?? []).includes(championRole))
+      : champions),
+    [championRole, champions],
   );
+
+  const selected = useMemo(
+    () => visibleChampions.find((champion) => champion.key === selectedId) ?? visibleChampions[0] ?? null,
+    [selectedId, visibleChampions],
+  );
+
+  const visibleSelectedId = tab === "champions" && data ? (selected?.key ?? "") : selectedId;
 
   useEffect(() => {
     const params = new URLSearchParams();
     params.set("v", "1");
     if (tab !== "champions") params.set("tab", tab);
     if (query) params.set("q", query);
-    if (selectedId && tab !== "builder") params.set("id", selectedId);
+    if (visibleSelectedId && tab !== "builder") params.set("id", visibleSelectedId);
     if (builderItemIds.length) params.set("b", builderItemIds.join(","));
     window.history.replaceState(null, "", `?${params.toString()}`);
-  }, [builderItemIds, query, selectedId, tab]);
+  }, [builderItemIds, query, tab, visibleSelectedId]);
 
-  useAtlasWebMcp({ tab, query, selectedId, builderItemIds, setTab, setQuery, setSelectedId, setBuilderItemIds });
+  useAtlasWebMcp({ tab, query, selectedId: visibleSelectedId, builderItemIds, setTab, setQuery, setSelectedId, setBuilderItemIds });
 
   const addBuilderItem = (id: string) => {
     setBuilderItemIds((current) => current.length >= 6 ? current : [...current, id]);
@@ -139,7 +157,9 @@ export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchP
         </aside>
 
         {tab === "champions" ? (
-          <ChampionWorkspace champions={champions} selected={selected} onSelect={setSelectedId} loading={!data && !error} error={error} wiki={data?.wiki} timeline={data?.timeline} />
+          <ChampionWorkspace champions={visibleChampions} selected={selected} onSelect={setSelectedId}
+            championCount={champions.length} role={championRole} roleCounts={roleCounts} onRoleChange={setChampionRole}
+            loading={!data && !error} error={error} wiki={data?.wiki} timeline={data?.timeline} />
         ) : tab === "items" ? (
           <ItemWorkspace items={data?.items ?? []} query={query} selectedId={selectedId} onSelect={setSelectedId} onAdd={addBuilderItem} />
         ) : tab === "runes" ? (
@@ -257,37 +277,25 @@ function useAtlasWebMcp(state: {
 
 const roleOrder = ["战士", "坦克", "法师", "刺客", "射手", "辅助"];
 
-function ChampionWorkspace({ champions, selected, onSelect, loading, error, wiki, timeline }: {
+function ChampionWorkspace({ champions, selected, onSelect, championCount, role, roleCounts, onRoleChange, loading, error, wiki, timeline }: {
   champions: Champion[]; selected: Champion | null; onSelect: (id: string) => void; loading: boolean;
+  championCount: number; role: string | null; roleCounts: Map<string, number>;
+  onRoleChange: (role: string | null) => void;
   error: string; wiki?: Record<string, WikiChampion>; timeline?: LolTimeline;
 }) {
-  const [role, setRole] = useState<string | null>(null);
   const groupRefs = useRef(new Map<string, HTMLDivElement>());
-
-  const roleCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const champion of champions) {
-      for (const tag of champion.tags_zh ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    }
-    return counts;
-  }, [champions]);
-
-  const base = useMemo(
-    () => (role ? champions.filter((champion) => (champion.tags_zh ?? []).includes(role)) : champions),
-    [champions, role],
-  );
 
   // 按中文名的拼音首字母分组，做成字母索引
   const groups = useMemo(() => {
     const map = new Map<string, Champion[]>();
-    for (const champion of base) {
+    for (const champion of champions) {
       const key = champion.initial ?? "#";
       const bucket = map.get(key);
       if (bucket) bucket.push(champion);
       else map.set(key, [champion]);
     }
     return [...map.entries()].sort((left, right) => left[0].localeCompare(right[0]));
-  }, [base]);
+  }, [champions]);
 
   const jumpTo = (letter: string) => {
     const node = groupRefs.current.get(letter);
@@ -299,15 +307,15 @@ function ChampionWorkspace({ champions, selected, onSelect, loading, error, wiki
       <section className="champion-index" aria-label="英雄列表">
         <div className="panel-heading">
           <div><span>CHAMPION INDEX</span><h2>英雄索引</h2></div>
-          <strong>{loading ? "—" : base.length}</strong>
+          <strong>{loading ? "—" : champions.length}</strong>
         </div>
         {!loading && !error ? (
           <div className="role-strip" role="group" aria-label="按定位筛选">
             <button type="button" className={role === null ? "role-chip active" : "role-chip"}
-              onClick={() => setRole(null)}>全部<span>{champions.length}</span></button>
-            {roleOrder.filter((entry) => roleCounts.has(entry)).map((entry) => (
+              onClick={() => onRoleChange(null)}>全部<span>{championCount}</span></button>
+            {roleOrder.map((entry) => (
               <button key={entry} type="button" className={role === entry ? "role-chip active" : "role-chip"}
-                onClick={() => setRole(entry)}>{entry}<span>{roleCounts.get(entry)}</span></button>
+                onClick={() => onRoleChange(entry)}>{entry}<span>{roleCounts.get(entry) ?? 0}</span></button>
             ))}
           </div>
         ) : null}
@@ -322,7 +330,7 @@ function ChampionWorkspace({ champions, selected, onSelect, loading, error, wiki
         <ScrollArea className="champion-scroll">
           {error ? <p className="state-message error">{error}</p> : null}
           {loading ? <p className="state-message">正在装载图鉴数据…</p> : null}
-          {!loading && !error && base.length === 0 ? <p className="state-message">没有找到匹配的英雄</p> : null}
+          {!loading && !error && champions.length === 0 ? <p className="state-message">没有找到匹配的英雄</p> : null}
           <div className="champion-list">
             {groups.map(([letter, bucket]) => (
               <div key={letter} className="champion-group"
