@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "patch": "16.18.1",
+  "txPatch": "16.18",
+  "builtAt": "2026-09-12T16:14:28+00:00",
+  "source": "Data Dragon zh_CN + 腾讯官方 CDN（技能数值）",
+  "counts": {
+    "champions": 173,
+    "spells": 865,
+    "items": 220,
+    "runes": 62,
+    "statMods": 9,
+    "summonerSpells": 9
+  },
+  "files": {
+    "lol.json": {
+      "bytes": 3556287,
+      "sha256": "82d667b067661879280f09f6b0f1929726f97356aec924b7e50247202708824a"
+    },
+    "lol.db": {
+      "bytes": 1691648,
+      "sha256": "ef0760993f55772fe14a81d10bbb0b1470b4802f8b87b7b65b5ae774d5912f39"
+    }
+  }
+}
