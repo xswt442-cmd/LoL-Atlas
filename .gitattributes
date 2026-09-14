@@ -1,0 +1,15 @@
+# Keep checked-in text and published data artifacts byte-stable across platforms.
+* text=auto
+
+*.json text eol=lf
+*.mjs text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.svg text eol=lf
+
+*.db binary
+*.png binary
