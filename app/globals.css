@@ -158,12 +158,12 @@ button, input { font: inherit; }
 .archive-note strong { grid-column: 2; color: #b5c9c9; font-family: var(--font-mono); }
 
 .champion-workspace { min-width: 0; display: grid; grid-template-columns: 19.5rem minmax(0, 1fr); height: calc(100vh - 5.25rem); }
-.champion-index { min-width: 0; border-right: 1px solid var(--border); background: rgba(7, 20, 28, .65); }
+.champion-index { min-width: 0; min-height: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: rgba(7, 20, 28, .65); }
 .panel-heading { height: 5.5rem; padding: 1.25rem 1.3rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
 .panel-heading span, .section-label span, .coming-soon > span { color: #65828a; font: .66rem var(--font-mono); letter-spacing: .14em; }
 .panel-heading h2 { font-size: 1rem; margin: .25rem 0 0; }
 .panel-heading > strong { font: 2rem var(--font-mono); color: rgba(214,171,84,.7); }
-.champion-scroll, .detail-scroll { height: calc(100vh - 10.75rem); }
+.champion-scroll { min-height: 0; height: auto; flex: 1; }
 .detail-scroll { height: calc(100vh - 5.25rem); }
 .champion-list { padding: .55rem; }
 .champion-row { width: 100%; display: grid; grid-template-columns: 2.7rem 1fr 1rem; align-items: center; gap: .75rem; padding: .65rem; color: #a9bcbf; background: transparent; border: 1px solid transparent; text-align: left; cursor: pointer; }
@@ -489,7 +489,7 @@ button, input { font: inherit; }
   .catalog-workspace { display: block; height: auto; }
   .champion-index { border-right: 0; }
   .catalog-index { border-right: 0; }
-  .champion-scroll { height: 19rem; }
+  .champion-scroll { height: 19rem; flex: none; }
   .catalog-scroll { height: 22rem; }
   .detail-scroll { height: auto; }
   .detail-inner { padding: 2rem 1rem 4rem; }
