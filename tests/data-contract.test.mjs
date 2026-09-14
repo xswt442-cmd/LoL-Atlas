@@ -5,10 +5,17 @@ import test from "node:test";
 
 import { comparePatchVersions, latestPatchVersion } from "../scripts/lib/patch-version.mjs";
 import { validateDataFile } from "../scripts/validate-data.mjs";
+import { classifyTag } from "../scripts/validate-tag.mjs";
 
 test("patch versions are ordered numerically", () => {
   assert.ok(comparePatchVersions("16.18.1", "16.9.1") > 0);
   assert.equal(latestPatchVersion(["16.9.1", "16.18.1", "15.24.2"]), "16.18.1");
+});
+
+test("application and data tags use separate namespaces", () => {
+  assert.deepEqual(classifyTag("v0.1.0", "0.1.0", "16.18.1"), { kind: "app", version: "0.1.0" });
+  assert.deepEqual(classifyTag("patch-16.18.1", "0.1.0", "16.18.1"), { kind: "patch", version: "16.18.1" });
+  assert.throws(() => classifyTag("v16.18.1", "0.1.0", "16.18.1"));
 });
 
 test("published data satisfies the atlas contract", async () => {

@@ -20,7 +20,10 @@
     "ci": "npm run check && npm run build",
     "release:manifest": "node scripts/create-release-manifest.mjs",
     "data:normalize": "node scripts/normalize-item-tiers.mjs",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "deploy": "node scripts/deploy.mjs deploy",
+    "deploy:preview": "node scripts/deploy.mjs preview",
+    "tag:validate": "node scripts/validate-tag.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
