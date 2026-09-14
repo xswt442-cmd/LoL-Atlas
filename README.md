@@ -1,53 +1,39 @@
 # LOL Atlas
 
-A data atlas for League of Legends.
+<p align="center">
+  <a href="https://lol-atlas.xswt.fyi"><img src="docs/assets/lol-atlas-banner.png" alt="LOL Atlas" width="100%"></a>
+</p>
 
-LOL Atlas turns versioned Riot and Tencent game data into a searchable, linkable reference for champions, items, runes, summoner spells, and loadouts. The public site is intended for `lol-atlas.xswt.fyi`.
+<p align="center">
+  <a href="https://lol-atlas.xswt.fyi"><img src="https://img.shields.io/badge/Cloudflare-在线-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare"></a>
+  <img src="https://img.shields.io/badge/patch-16.18.1-D6AB54" alt="Patch 16.18.1">
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827" alt="React">
+</p>
 
-## What is here
+<p align="center">英雄联盟中文数据图鉴：英雄、装备、符文、召唤师技能与配装。</p>
 
-- A TypeScript + React atlas UI built with Vinext
-- Real patch `16.18.1` data, not demo fixtures
-- URL-restorable navigation, search, selected records, and six-slot loadouts
-- Versioned release artifacts under `data/releases/<patch>/`
-- Node data-contract checks and numeric patch-version tests
-- A small Python pipeline package that establishes the migration boundary for acquisition and normalization work
+<p align="center"><a href="README.en.md">English</a> · <a href="https://lol-atlas.xswt.fyi">在线访问</a></p>
 
-## Local development
+## 开发
 
-Requires Node.js `>=22.13.0` and Python `>=3.12` for pipeline work.
-
-```powershell
+```bash
 npm ci
 npm run dev
 ```
 
-The portable development server listens on `http://localhost:5173` by default.
+## 部署
 
-## Quality gates
-
-```powershell
-npm run check
-npm run build
-python -m pip install -e pipeline
-python -m unittest discover -s pipeline/tests
+```bash
+npm run deploy          # 正式部署
+npm run deploy:preview  # 上传预览版本
 ```
 
-`npm run check` runs TypeScript, ESLint, the published-data contract, and Node tests. CI runs the web checks on Windows and Linux, then tests the Python package separately.
+## 版本标签
 
-## Data layout
+- `v0.1.0`：LOL Atlas 应用版本
+- `patch-16.18.1`：英雄联盟数据版本
 
-```text
-public/data/lol.json                  browser payload for the current patch
-data/releases/16.18.1/lol.json       immutable JSON release
-data/releases/16.18.1/lol.db         immutable SQLite release
-data/releases/16.18.1/manifest.json  counts, provenance, sizes, and SHA-256 hashes
-data/legacy/versions/*.db            preserved, unpromoted historical snapshots
-pipeline/                             acquisition/normalization package boundary
-```
+两类 tag 会由独立 CI 规则校验并产出对应构建物。
 
-A release becomes current only after its manifest and data contract pass. Raw downloads, caches, staging files, and logs are intentionally ignored. Historical SQLite snapshots are preserved under `data/legacy/` until they pass the new normalization rules; in particular, `16.15.1` must have temporary `Jade_*` variants removed before promotion.
-
-## Data sources
-
-The current snapshot combines Riot Data Dragon `zh_CN` data with Tencent's official CDN for localized ability values. League of Legends and its assets are trademarks or registered trademarks of Riot Games. This project is not endorsed by Riot Games.
+数据来自 Riot Data Dragon `zh_CN` 与腾讯官方 CDN。本项目与 Riot Games 无隶属或背书关系。
