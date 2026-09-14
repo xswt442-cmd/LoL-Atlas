@@ -3,15 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Boxes, ChevronRight, Database, Gem, History, Search, Shield, Sparkles, Swords } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BuilderWorkspace } from "@/components/atlas/builder-workspace";
+import { ChampionDetail } from "@/components/atlas/champion-detail";
 import { ItemWorkspace } from "@/components/atlas/item-workspace";
 import { RuneWorkspace } from "@/components/atlas/rune-workspace";
 import { SummonerWorkspace } from "@/components/atlas/summoner-workspace";
-import { Champion, loadLolData, LolData } from "@/lib/lol-data";
+import { Champion, loadLolData, LolData, LolTimeline, WikiChampion } from "@/lib/lol-data";
 
 const navItems = [
   { value: "champions", label: "英雄", icon: Swords },
@@ -20,11 +20,6 @@ const navItems = [
   { value: "summoner", label: "召唤师技能", icon: Sparkles },
   { value: "builder", label: "配装", icon: Boxes },
 ] as const;
-
-const statRows: Array<[keyof Champion, string]> = [
-  ["hp", "生命"], ["attackdamage", "攻击力"], ["armor", "护甲"],
-  ["spellblock", "魔抗"], ["attackspeed", "攻速"], ["attackrange", "射程"], ["movespeed", "移速"],
-];
 
 function readInitialState(search: string) {
   const params = new URLSearchParams(search);
@@ -37,7 +32,7 @@ function readInitialState(search: string) {
   };
 }
 
-export function AtlasShell({ initialSearchParams }: { initialSearchParams: string }) {
+export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchParams: string; appVersion: string }) {
   const [initial] = useState(() => readInitialState(initialSearchParams));
   const [data, setData] = useState<LolData | null>(null);
   const [error, setError] = useState("");
@@ -122,7 +117,15 @@ export function AtlasShell({ initialSearchParams }: { initialSearchParams: strin
           <Input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索当前档案…" />
           <kbd>⌘/Ctrl K</kbd>
         </label>
-        <div className="version-chip"><span className="status-dot" />{data ? `PATCH ${data.meta.version}` : "LOADING"}</div>
+        <div className="version-block">
+          <span className="version-patch">{data ? `PATCH ${data.meta.version}` : "LOADING"}</span>
+          <span className="version-site">
+            <span className="status-dot" />
+            <span>v{appVersion}</span>
+            {data?.meta.tx_version ? <span className="version-sep">tx {data.meta.tx_version}</span> : null}
+            {data?.meta.built_at ? <span className="version-date">{data.meta.built_at.slice(0, 10)}</span> : null}
+          </span>
+        </div>
       </header>
 
       <Tabs value={tab} onValueChange={setTab} orientation="vertical" className="atlas-body">
@@ -136,7 +139,7 @@ export function AtlasShell({ initialSearchParams }: { initialSearchParams: strin
         </aside>
 
         {tab === "champions" ? (
-          <ChampionWorkspace champions={champions} selected={selected} onSelect={setSelectedId} loading={!data && !error} error={error} />
+          <ChampionWorkspace champions={champions} selected={selected} onSelect={setSelectedId} loading={!data && !error} error={error} wiki={data?.wiki} timeline={data?.timeline} />
         ) : tab === "items" ? (
           <ItemWorkspace items={data?.items ?? []} query={query} selectedId={selectedId} onSelect={setSelectedId} onAdd={addBuilderItem} />
         ) : tab === "runes" ? (
@@ -252,64 +255,102 @@ function useAtlasWebMcp(state: {
   }, []);
 }
 
-function ChampionWorkspace({ champions, selected, onSelect, loading, error }: {
-  champions: Champion[]; selected: Champion | null; onSelect: (id: string) => void; loading: boolean; error: string;
+const roleOrder = ["战士", "坦克", "法师", "刺客", "射手", "辅助"];
+
+function ChampionWorkspace({ champions, selected, onSelect, loading, error, wiki, timeline }: {
+  champions: Champion[]; selected: Champion | null; onSelect: (id: string) => void; loading: boolean;
+  error: string; wiki?: Record<string, WikiChampion>; timeline?: LolTimeline;
 }) {
+  const [role, setRole] = useState<string | null>(null);
+  const groupRefs = useRef(new Map<string, HTMLDivElement>());
+
+  const roleCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const champion of champions) {
+      for (const tag of champion.tags_zh ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    return counts;
+  }, [champions]);
+
+  const base = useMemo(
+    () => (role ? champions.filter((champion) => (champion.tags_zh ?? []).includes(role)) : champions),
+    [champions, role],
+  );
+
+  // 按中文名的拼音首字母分组，做成字母索引
+  const groups = useMemo(() => {
+    const map = new Map<string, Champion[]>();
+    for (const champion of base) {
+      const key = champion.initial ?? "#";
+      const bucket = map.get(key);
+      if (bucket) bucket.push(champion);
+      else map.set(key, [champion]);
+    }
+    return [...map.entries()].sort((left, right) => left[0].localeCompare(right[0]));
+  }, [base]);
+
+  const jumpTo = (letter: string) => {
+    const node = groupRefs.current.get(letter);
+    if (node) node.scrollIntoView({ block: "start" });
+  };
+
   return (
     <div className="champion-workspace">
       <section className="champion-index" aria-label="英雄列表">
-        <div className="panel-heading"><div><span>CHAMPION INDEX</span><h2>英雄索引</h2></div><strong>{loading ? "—" : champions.length}</strong></div>
+        <div className="panel-heading">
+          <div><span>CHAMPION INDEX</span><h2>英雄索引</h2></div>
+          <strong>{loading ? "—" : base.length}</strong>
+        </div>
+        {!loading && !error ? (
+          <div className="role-strip" role="group" aria-label="按定位筛选">
+            <button type="button" className={role === null ? "role-chip active" : "role-chip"}
+              onClick={() => setRole(null)}>全部<span>{champions.length}</span></button>
+            {roleOrder.filter((entry) => roleCounts.has(entry)).map((entry) => (
+              <button key={entry} type="button" className={role === entry ? "role-chip active" : "role-chip"}
+                onClick={() => setRole(entry)}>{entry}<span>{roleCounts.get(entry)}</span></button>
+            ))}
+          </div>
+        ) : null}
+        {!loading && !error && groups.length > 1 ? (
+          <div className="letter-rail" role="group" aria-label="按拼音首字母跳转">
+            {groups.map(([letter, bucket]) => (
+              <button key={letter} type="button" className="letter-chip"
+                title={`${letter} · ${bucket.length}`} onClick={() => jumpTo(letter)}>{letter}</button>
+            ))}
+          </div>
+        ) : null}
         <ScrollArea className="champion-scroll">
           {error ? <p className="state-message error">{error}</p> : null}
           {loading ? <p className="state-message">正在装载图鉴数据…</p> : null}
-          {!loading && !error && champions.length === 0 ? <p className="state-message">没有找到匹配的英雄</p> : null}
+          {!loading && !error && base.length === 0 ? <p className="state-message">没有找到匹配的英雄</p> : null}
           <div className="champion-list">
-            {champions.map((champion) => (
-              <button type="button" key={champion.key}
-                className={champion.key === selected?.key ? "champion-row active" : "champion-row"}
-                onClick={() => onSelect(champion.key)}>
-                <img src={champion.icon} alt="" loading="lazy" />
-                <span><strong>{champion.name}</strong><small>{champion.epithet}</small></span>
-                <ChevronRight aria-hidden="true" />
-              </button>
+            {groups.map(([letter, bucket]) => (
+              <div key={letter} className="champion-group"
+                ref={(node) => {
+                  if (node) groupRefs.current.set(letter, node);
+                  else groupRefs.current.delete(letter);
+                }}>
+                <div className="champion-group-head"><span>{letter}</span><em>{bucket.length}</em></div>
+                {bucket.map((champion) => (
+                  <button type="button" key={champion.key}
+                    className={champion.key === selected?.key ? "champion-row active" : "champion-row"}
+                    onClick={() => onSelect(champion.key)}>
+                    <img src={champion.icon} alt="" loading="lazy" />
+                    <span>
+                      <strong>{champion.name}<em>{champion.name_en}</em></strong>
+                      <small>{champion.epithet}</small>
+                    </span>
+                    <ChevronRight aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         </ScrollArea>
       </section>
-      <section className="champion-detail" aria-live="polite">{selected ? <ChampionDetail champion={selected} /> : null}</section>
+      <section className="champion-detail" aria-live="polite">
+        {selected ? <ChampionDetail champion={selected} wiki={wiki?.[selected.id]} timeline={timeline} /> : null}
+      </section>
     </div>
-  );
-}
-
-function ChampionDetail({ champion }: { champion: Champion }) {
-  return (
-    <ScrollArea className="detail-scroll">
-      <div className="detail-inner">
-        <div className="champion-hero">
-          <img src={champion.icon} alt={`${champion.name}头像`} />
-          <div className="champion-title">
-            <p>{champion.id.toUpperCase()} / {champion.key}</p><h2>{champion.name}</h2><span>{champion.epithet}</span>
-            <div className="tag-row">
-              {champion.tags_zh.map((tag) => <Badge key={tag}>{tag}</Badge>)}
-              {[champion.tag_primary, champion.tag_secondary].filter(Boolean).map((tag) => <Badge key={tag} variant="outline">{tag}</Badge>)}
-            </div>
-          </div>
-          <div className="combat-note"><span>{champion.attack_type ?? "—"}</span><strong>{champion.damage_type ?? "未知伤害"}</strong><small>{champion.partype}</small></div>
-        </div>
-        <p className="champion-blurb">{champion.blurb}</p>
-        <div className="stat-grid">
-          {statRows.map(([key, label]) => <div key={key}><span>{label}</span><strong>{String(champion[key])}</strong></div>)}
-        </div>
-        <div className="section-label"><span>ABILITIES</span><strong>技能档案</strong></div>
-        <div className="spell-stack">
-          {champion.spells.map((spell) => (
-            <article key={spell.slot} className="spell-card">
-              <div className="spell-icon-wrap">{spell.icon_url ? <img src={spell.icon_url} alt="" loading="lazy" /> : null}<span>{spell.slot}</span></div>
-              <div><header><h3>{spell.name}</h3><small>{spell.cooldown ? `CD ${spell.cooldown}` : "被动"}</small></header><p>{spell.description}</p></div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </ScrollArea>
   );
 }

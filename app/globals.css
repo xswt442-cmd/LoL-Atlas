@@ -2,6 +2,36 @@
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 
+/* 像素街机字体（均 OFL-1.1，自托管）：
+   - Press Start 2P 负责拉丁/数字（按 unicode-range 拆子集）
+   - Fusion Pixel 12px 负责中文，否则中文会掉回平滑字体，和拉丁像素体割裂
+   取自同一套约定（BGM 项目）。只用在标签上，正文保持可读字体。 */
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("/fonts/press-start-2p/press-start-2p-latin.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("/fonts/press-start-2p/press-start-2p-latin-ext.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Fusion Pixel 12px";
+  src: url("/fonts/fusion-pixel-12px-proportional-zh-hans.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
 :root {
   --background: #061018;
   --foreground: #e9f2f1;
@@ -54,6 +84,7 @@
   --radius-xl: calc(var(--radius) + 6px);
   --font-sans: "Segoe UI", "Microsoft YaHei UI", sans-serif;
   --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --font-pixel: "Press Start 2P", "Fusion Pixel 12px", ui-monospace, "Cascadia Mono", monospace;
 }
 
 * { box-sizing: border-box; }
@@ -110,8 +141,12 @@ button, input { font: inherit; }
 .atlas-search input:focus-visible { border-color: var(--ring); box-shadow: 0 0 0 1px var(--ring), 0 0 2rem rgba(103, 215, 197, .08); }
 .atlas-search kbd { position: absolute; right: 0.75rem; color: #628188; font: 0.7rem var(--font-mono); border: 1px solid #284650; padding: 0.2rem 0.4rem; }
 
-.version-chip { justify-self: end; color: #9fb5b7; font: 0.75rem var(--font-mono); letter-spacing: 0.08em; display: flex; align-items: center; gap: 0.55rem; }
-.status-dot { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: #67d7c5; box-shadow: 0 0 0.9rem #67d7c5; }
+.version-block { justify-self: end; display: grid; justify-items: end; gap: 0.3rem; text-align: right; }
+.version-patch { color: #f0d59a; font: 0.78rem/1 var(--font-mono); letter-spacing: 0.12em; }
+.version-site { display: flex; align-items: center; gap: 0.45rem; color: #7f989d; font: 0.68rem/1 var(--font-mono); letter-spacing: 0.06em; }
+.version-sep, .version-date { color: #556e75; }
+.version-sep::before, .version-date::before { content: "·"; margin-right: 0.4rem; color: #3d545b; }
+.status-dot { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: #67d7c5; box-shadow: 0 0 0.7rem #67d7c5; }
 
 .atlas-body { display: grid !important; grid-template-columns: 13.5rem minmax(0, 1fr); min-height: calc(100vh - 5.25rem); gap: 0 !important; }
 .atlas-nav { border-right: 1px solid var(--border); padding: 2rem 1rem; display: flex; flex-direction: column; justify-content: space-between; background: rgba(6, 17, 24, .58); }
@@ -146,8 +181,14 @@ button, input { font: inherit; }
 
 .champion-detail { min-width: 0; background: linear-gradient(180deg, rgba(11, 29, 38, .48), rgba(5, 16, 23, .8)); }
 .detail-inner { max-width: 70rem; margin: 0 auto; padding: 3.5rem clamp(1.5rem, 5vw, 5rem) 6rem; }
-.champion-hero { display: grid; grid-template-columns: 7.5rem 1fr auto; align-items: center; gap: 1.7rem; }
-.champion-hero > img { width: 7.5rem; aspect-ratio: 1; object-fit: cover; border: 1px solid rgba(214,171,84,.55); padding: .25rem; background: #0c1c24; box-shadow: 0 1.5rem 4rem rgba(0,0,0,.25); }
+/* 原画 hero：splash 作底，左侧压渐变保证文字可读 */
+.champion-hero { position: relative; overflow: hidden; border: 1px solid var(--border); background: #08161d; }
+.hero-splash { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; }
+.hero-scrim { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(6,16,24,.97) 24%, rgba(6,16,24,.74) 54%, rgba(6,16,24,.26)); }
+.hero-body { position: relative; display: grid; grid-template-columns: 6.5rem 1fr auto; align-items: center; gap: 1.6rem; padding: 2.4rem clamp(1.25rem, 3vw, 2.75rem); }
+.hero-icon { width: 6.5rem; aspect-ratio: 1; object-fit: cover; border: 1px solid rgba(214,171,84,.55); padding: .22rem; background: #0c1c24; }
+/* 右侧信息压在原画上，需要底板才够对比度 */
+.hero-body .combat-note { border-left: 1px solid rgba(103,215,197,.4); background: rgba(6,18,26,.66); padding: .8rem 1rem; min-width: 7.5rem; }
 .champion-title > p { margin: 0 0 .55rem; color: #5f7f87; font: .72rem var(--font-mono); letter-spacing: .14em; }
 .champion-title h2 { margin: 0; color: #f5e7c6; font-size: clamp(2rem, 4vw, 3.7rem); line-height: 1; letter-spacing: .04em; }
 .champion-title > span { display: block; margin-top: .55rem; color: #91a9ad; }
@@ -173,6 +214,160 @@ button, input { font: inherit; }
 .spell-card h3 { margin: 0; color: #e3d3ad; font-size: 1rem; }
 .spell-card small { color: #67a9a6; font: .7rem var(--font-mono); }
 .spell-card p { margin: .55rem 0 0; color: #8fa6aa; font-size: .86rem; line-height: 1.65; }
+
+/* EN 原案（lolwiki 副源）：独立呈现，不与中文技能卡混排 */
+.source-toggle { margin-left: auto; padding: .32rem .7rem; border: 1px solid rgba(214,171,84,.4); background: rgba(214,171,84,.07); color: #e8cd92; font: .72rem var(--font-mono); cursor: pointer; }
+.source-toggle:hover { border-color: rgba(214,171,84,.75); background: rgba(214,171,84,.14); }
+.source-note { margin: 1.5rem 0 0; color: #67848a; font-size: .74rem; }
+.wiki-stack { display: grid; gap: .75rem; }
+.wiki-card { padding: 1.1rem 1.2rem; border: 1px solid var(--border); border-left: 2px solid rgba(103,215,197,.45); background: rgba(8,24,32,.62); }
+.wiki-card-head { display: flex; align-items: baseline; gap: .7rem; }
+.wiki-card-head h3 { margin: 0; color: #e3d3ad; font-size: 1rem; }
+.wiki-card-head small { color: #67a9a6; font: .68rem var(--font-mono); }
+.wiki-slot { width: 1.45rem; height: 1.45rem; flex: none; display: grid; place-items: center; background: #d6ab54; color: #071018; font: 700 .72rem var(--font-mono); }
+.wiki-desc { margin: .8rem 0 0; color: #9db3b6; font-size: .86rem; line-height: 1.72; }
+.wiki-flavor { margin: .6rem 0 0; color: #7f9a9d; font-size: .82rem; font-style: italic; }
+.wiki-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .45rem; margin: .95rem 0 0; }
+.wiki-stat { padding: .55rem .7rem; border: 1px solid var(--border); background: rgba(11,31,39,.6); }
+.wiki-stats dt { color: #66828a; font: .66rem var(--font-mono); letter-spacing: .06em; }
+.wiki-stats dd { margin: .3rem 0 0; color: #ddebea; font: .82rem var(--font-mono); }
+.wiki-attrs { display: flex; flex-wrap: wrap; gap: .35rem; margin: .8rem 0 0; padding: 0; list-style: none; }
+.wiki-attrs li { display: flex; gap: .4rem; padding: .22rem .55rem; border: 1px solid #274550; background: rgba(10,29,38,.7); font-size: .7rem; color: #8ba7ab; }
+.wiki-attrs b { color: #c9d8d6; font-weight: 400; }
+.wiki-notes { margin: .85rem 0 0; padding-left: 1.1rem; display: grid; gap: .34rem; }
+.wiki-notes li { color: #80999c; font-size: .78rem; line-height: 1.6; }
+
+/* ---- 定位筛选 chips ---- */
+.role-strip { display: flex; flex-wrap: wrap; gap: .35rem; padding: .7rem .8rem; border-bottom: 1px solid var(--border); }
+.role-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .6rem; border: 1px solid #274550; background: rgba(10,29,38,.7); color: #7d979c; font-size: .72rem; cursor: pointer; }
+.role-chip:hover { border-color: rgba(214,171,84,.45); color: #e8cd92; }
+.role-chip.active { border-color: rgba(214,171,84,.75); background: rgba(214,171,84,.14); color: #f2dfb6; }
+.role-chip span { color: #5c757c; font: .64rem var(--font-mono); }
+.role-chip.active span { color: #b99b58; }
+
+/* ---- 列表行的英文名 ---- */
+.champion-row strong em { margin-left: .45rem; color: #5d7a81; font: .68rem var(--font-mono); font-style: normal; }
+
+/* ---- 属性表 + 玩法雷达 并排 ---- */
+.champion-overview { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.6rem; align-items: center; margin-top: 1.5rem; }
+.champion-overview .stat-grid { margin: 0; }
+.radar { margin: 0; display: grid; justify-items: center; gap: .35rem; }
+.radar svg { width: 11.5rem; height: auto; }
+.radar-ring { fill: none; stroke: #1e3a45; stroke-width: .8; }
+.radar-spoke { stroke: #1b333d; stroke-width: .8; }
+.radar-shape { fill: rgba(103,215,197,.18); stroke: #67d7c5; stroke-width: 1.2; }
+.radar-label { fill: #7d979c; font: .62rem var(--font-mono); }
+.radar figcaption { color: #5d7a81; font: .66rem var(--font-mono); letter-spacing: .1em; }
+
+/* ---- 皮肤 ---- */
+.section-count { margin-left: .1rem; color: #6d898f; font: .7rem var(--font-mono); font-style: normal; }
+.skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .7rem; }
+.skin-card { margin: 0; border: 1px solid var(--border); background: rgba(8,24,32,.62); }
+.skin-card img { display: block; width: 100%; aspect-ratio: 308 / 560; object-fit: cover; object-position: 50% 18%; }
+.skin-card figcaption { display: flex; align-items: baseline; gap: .35rem; padding: .45rem .55rem; color: #b6c8c8; font-size: .72rem; line-height: 1.35; }
+.skin-card figcaption em { color: #6d898f; font: .64rem var(--font-mono); font-style: normal; }
+
+/* ============ v3 视觉：磨砂玻璃 + 像素街机（低比重） ============ */
+/* 玻璃只铺在「面板类」表面；正文与数据保持实底，可读优先 */
+.atlas-header {
+  background: rgba(6, 16, 24, .74);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+.atlas-nav {
+  background: rgba(6, 16, 24, .58);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+.champion-index, .catalog-index {
+  background: rgba(7, 20, 28, .48);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+}
+.spell-card, .wiki-card, .rune-card, .skin-card, .mod-grid > div, .recipe-row, .builder-grid article {
+  background: rgba(12, 30, 39, .44);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.atlas-search input {
+  background: rgba(10, 26, 34, .5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* 像素街机字体：只给拉丁文小标签用，占比压低 */
+.eyebrow, .brand-lockup h1, .version-patch, .panel-heading span, .section-label span,
+.wiki-slot, .spell-icon-wrap span, .letter-chip, .section-count, .champion-group-head span,
+.timeline-version {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+}
+
+/* ---- 字母索引 ---- */
+.letter-rail { display: flex; flex-wrap: wrap; gap: .16rem; padding: .5rem .8rem; border-bottom: 1px solid var(--border); }
+.letter-chip { min-width: 1.3rem; padding: .16rem .3rem; border: 1px solid transparent; background: rgba(10, 29, 38, .5); color: #6d898f; cursor: pointer; }
+.letter-chip:hover { border-color: rgba(214, 171, 84, .5); color: #f0d59a; }
+
+/* ---- 分组头 ---- */
+.champion-group { scroll-margin-top: .5rem; }
+.champion-group-head { display: flex; align-items: baseline; gap: .5rem; padding: .7rem .7rem .25rem; }
+.champion-group-head span { font-size: .8rem; color: #d6ab54; }
+.champion-group-head em { color: #5c757c; font: .64rem var(--font-mono); font-style: normal; }
+
+/* ---- EN 来源标注 ---- */
+.source-badge { display: inline-flex; align-items: center; gap: .5rem; margin: -1.5rem 0 0; padding: .42rem .75rem;
+  border: 1px solid rgba(103, 215, 197, .35); background: rgba(103, 215, 197, .08); color: #8fd9cc; font-size: .72rem; }
+.source-badge-dot { width: .42rem; height: .42rem; background: #67d7c5; box-shadow: 0 0 .5rem #67d7c5; }
+
+/* ---- 趣闻 ---- */
+.trivia-list { margin: 0; padding-left: 1.15rem; display: grid; gap: .4rem; color: #9db3b6; font-size: .82rem; line-height: 1.7; }
+
+/* ---- 版本改动 ---- */
+.timeline { margin: 0; padding: 0; list-style: none; display: grid; gap: .5rem; }
+.timeline-row { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 1rem; padding: .7rem .9rem;
+  border: 1px solid var(--border); background: rgba(12, 30, 39, .44); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.timeline-version { font-size: .7rem; color: #d6ab54; }
+.timeline-fields { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .3rem 1.1rem; }
+.timeline-fields li { display: inline-flex; align-items: baseline; gap: .4rem; font-size: .76rem; }
+.timeline-field { color: #779197; }
+.timeline-from { color: #6d898f; font: 400 .76rem var(--font-mono); }
+.timeline-fields i { color: #3d545b; font-style: normal; }
+.timeline-to { color: #67d7c5; font: 400 .76rem var(--font-mono); }
+
+/* ============ v4：放大正文 + 借 BGM 的 8-bit 手法 ============ */
+/* 标签类也走像素栈（Fusion Pixel 兜中文），正文一律不套 */
+.section-label strong, .panel-heading h2 { font-family: var(--font-pixel); letter-spacing: .02em; }
+
+/* 阅读字号整体上调一档：原 wiki 描述的 0.86rem 偏小 */
+.wiki-desc { font-size: .95rem; line-height: 1.78; }
+.wiki-flavor { font-size: .9rem; }
+.wiki-stats dt { font-size: .72rem; }
+.wiki-stats dd { font-size: .9rem; }
+.wiki-attrs li { font-size: .76rem; }
+.wiki-notes li { font-size: .87rem; line-height: 1.72; }
+.source-note { font-size: .8rem; }
+.source-badge { font-size: .78rem; }
+.spell-card h3 { font-size: 1.05rem; }
+.spell-card small { font-size: .74rem; }
+.spell-card p { font-size: .94rem; line-height: 1.72; }
+.champion-blurb { font-size: 1.02rem; }
+.trivia-list { font-size: .9rem; }
+.timeline-version { font-size: .76rem; }
+.timeline-fields li { font-size: .84rem; }
+.timeline-from, .timeline-to { font-size: .84rem; }
+.timeline-field { font-size: .84rem; }
+.skin-card figcaption { font-size: .78rem; }
+.radar-label { font-size: .68rem; }
+.role-chip { font-size: .78rem; }
+.champion-row small { font-size: .76rem; }
+
+/* 8-bit 硬阴影：只给字母/槽位徽标这类小方块 */
+.wiki-slot, .spell-icon-wrap span { box-shadow: 2px 2px 0 rgba(0, 0, 0, .55); }
+
+/* 街机按压：按下时平移，把硬阴影"吃掉" */
+.source-toggle:active, .role-chip:active, .letter-chip:active, .atlas-nav-item:active {
+  transform: translate(2px, 2px);
+}
 .coming-soon { margin: auto; width: min(38rem, calc(100% - 3rem)); padding: 3rem; border: 1px solid var(--border); background: rgba(9, 25, 33, .72); }
 .coming-soon h2 { margin: .6rem 0; color: #f0d59a; font-size: 2rem; }
 .coming-soon p { color: #8ca3a7; }
@@ -269,7 +464,8 @@ button, input { font: inherit; }
 
 @media (max-width: 960px) {
   .atlas-header { grid-template-columns: 1fr minmax(15rem, 1fr); gap: 1rem; padding: 0 1rem; }
-  .version-chip { display: none; }
+  .version-site { display: none; }
+  .champion-overview { grid-template-columns: 1fr; justify-items: start; }
   .atlas-body { grid-template-columns: 4.5rem minmax(0, 1fr); }
   .atlas-nav { padding-inline: .55rem; }
   .atlas-nav-item { justify-content: center !important; padding-inline: .5rem !important; }
@@ -298,7 +494,9 @@ button, input { font: inherit; }
   .detail-scroll { height: auto; }
   .detail-inner { padding: 2rem 1rem 4rem; }
   .champion-hero { grid-template-columns: 5.25rem 1fr; gap: 1rem; }
-  .champion-hero > img { width: 5.25rem; }
+  .hero-body { grid-template-columns: 4.5rem 1fr; gap: 1rem; padding: 1.6rem 1rem; }
+  .hero-icon { width: 4.5rem; }
+  .hero-scrim { background: linear-gradient(90deg, rgba(6,16,24,.97) 40%, rgba(6,16,24,.6)); }
   .combat-note { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--border); padding: .8rem 0 0; grid-template-columns: repeat(3, 1fr); }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .spell-card { grid-template-columns: 3rem 1fr; }

@@ -36,6 +36,23 @@ export function validateData(data) {
     const slots = champion.spells?.map((spell) => spell.slot) ?? [];
     assert(SPELL_SLOTS.every((slot) => slots.includes(slot)) && new Set(slots).size === 5,
       `champion ${champion.id} must have exactly P/Q/W/E/R`, errors);
+    // 英文简介与拼音首字母是 UI 的硬依赖（EN 原案简介 / 字母索引），缺了要在这里拦下
+    assert(typeof champion.blurb_en === "string" && champion.blurb_en.length > 0,
+      `champion ${champion.id} must carry an English blurb`, errors);
+    assert(/^[A-Z]$/.test(champion.initial ?? ""),
+      `champion ${champion.id} must carry a single A-Z pinyin initial`, errors);
+    // 皮肤：只保留真皮肤（炫彩条目在 ddragon 上没有原画，且会让前端狂刷 onError）。
+    // 这里拦的是「上游重新生成数据、没跑 enrich 脚本」的情况。
+    const skins = champion.skins ?? [];
+    assert(skins.length >= 1, `champion ${champion.id} must expose at least one skin`, errors);
+    assert(duplicates(skins.map((skin) => skin.num)).length === 0,
+      `champion ${champion.id} has duplicate skin nums`, errors);
+    for (const skin of skins) {
+      assert(Number.isInteger(skin.chroma_count) && skin.chroma_count >= 0,
+        `champion ${champion.id} skin ${skin.num} must carry a numeric chroma_count`, errors);
+    }
+    assert(!skins.some((skin) => "chromas" in skin),
+      `champion ${champion.id} still carries the old boolean chromas field`, errors);
   }
 
   const items = data?.items ?? [];
@@ -58,6 +75,26 @@ export function validateData(data) {
   const statRows = new Map();
   for (const mod of data?.stat_mods ?? []) statRows.set(mod.row_no, (statRows.get(mod.row_no) ?? 0) + 1);
   assert(statRows.size === 3 && [...statRows.values()].every((count) => count === 3), "stat mods must be grouped 3 x 3", errors);
+
+  // 英文原案副源：按 champion.id 索引，必须覆盖全部英雄且每个英雄 P/Q/W/E/R 齐全。
+  // 这是 UI 里「EN 原案」视图的唯一数据来源，缺一块就会静默少显示一个技能。
+  const wiki = data?.wiki;
+  assert(wiki && typeof wiki === "object", "wiki source must be present and keyed by champion id", errors);
+  for (const champion of champions) {
+    const entry = wiki?.[champion.id];
+    assert(Boolean(entry), `champion ${champion.id} is missing a wiki entry`, errors);
+    if (!entry) continue;
+    const slots = (entry.abilities ?? []).map((ability) => ability.slot).filter(Boolean);
+    assert(SPELL_SLOTS.every((slot) => slots.includes(slot)),
+      `wiki ${champion.id} must cover P/Q/W/E/R`, errors);
+    for (const ability of entry.abilities ?? []) {
+      if (!ability?.slot) continue;
+      assert(typeof ability.name === "string" && ability.name.length > 0,
+        `wiki ${champion.id} ${ability.slot} must have an ability name`, errors);
+      assert(typeof ability.description === "string" && ability.description.length > 0,
+        `wiki ${champion.id} ${ability.slot} must have a description`, errors);
+    }
+  }
   return errors;
 }
 

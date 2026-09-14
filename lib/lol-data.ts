@@ -8,10 +8,37 @@ export interface Spell {
   icon_url: string | null;
 }
 
+export interface ChampionSkin {
+  num: number;
+  name: string;
+  /**
+   * 该皮肤自带的炫彩数量。
+   *
+   * 炫彩在上游数据里被当成独立皮肤塞进 skins，但 ddragon 上没有它们的原画，
+   * 所以 `scripts/enrich-champion-fields.mjs` 会把炫彩条目剔掉、把数量归到父皮肤上。
+   * 上游重新生成数据后若没重跑该脚本，这里会缺省，UI 按 0 处理。
+   */
+  chroma_count?: number;
+}
+
+/** 官方五维玩法评分（0-3），用于雷达图 */
+export interface Playstyle {
+  damage: number;
+  durability: number;
+  crowdControl: number;
+  mobility: number;
+  utility: number;
+}
+
 export interface Champion {
   key: string;
   id: string;
   name: string;
+  name_en: string;
+  /** 英文简介（ddragon en_US），中文 blurb 的对照 */
+  blurb_en?: string;
+  /** 中文名拼音首字母，用于索引按字母分组 */
+  initial?: string;
   epithet: string;
   blurb: string;
   partype: string;
@@ -20,6 +47,10 @@ export interface Champion {
   tag_secondary: string | null;
   attack_type: string | null;
   damage_type: string | null;
+  /** 数据管道里存成了 JSON 字符串（如 `"[\"mage\"]"`），使用前需 JSON.parse */
+  roles?: string;
+  playstyle?: Playstyle;
+  skins?: ChampionSkin[];
   hp: number;
   hp_per_level: number;
   armor: number;
@@ -100,6 +131,44 @@ export interface SummonerSpell {
   icon: string;
 }
 
+/**
+ * 英文原案（lolwiki 副源）。与 CDN 中文数据相互独立：
+ * `stats`/`attrs`/`notes` 在中文源里没有对应项，缺失时应留空而不是拿中文顶替。
+ */
+export interface WikiAbility {
+  slot: "P" | "Q" | "W" | "E" | "R" | null;
+  name: string;
+  type: string | null;
+  description: string;
+  flavor: string;
+  /** 数值网格，如 { Cost: "55 / 65 / 75 / 85 / 95 mana", Width: "200" } */
+  stats: Record<string, string>;
+  /** 机制属性，如 { "Spell shield": "Blocked", Projectile: "Blocked" } */
+  attrs: Record<string, string>;
+  /** 机制备注正文 */
+  notes: string[];
+}
+
+export interface WikiChampion {
+  name_zh: string;
+  wiki_title: string;
+  abilities: WikiAbility[];
+  patch_history: string[];
+  trivia: string[];
+}
+
+/** 版本时间线：某个版本里某字段的 [旧值, 新值] */
+export interface TimelineChange {
+  v: string;
+  c: Record<string, [number, number]>;
+}
+
+export interface LolTimeline {
+  versions: string[];
+  champions: Record<string, TimelineChange[]>;
+  items: Record<string, TimelineChange[]>;
+}
+
 export interface LolData {
   meta: { version: string; tx_version?: string; built_at?: string };
   champions: Champion[];
@@ -107,6 +176,10 @@ export interface LolData {
   trees: RuneTree[];
   stat_mods: StatMod[];
   summoner: SummonerSpell[];
+  /** 英文原案副源，按英雄 key 索引；未跑 wiki 抓取时可缺省 */
+  wiki?: Record<string, WikiChampion>;
+  /** 版本改动（逐字段 diff） */
+  timeline?: LolTimeline;
 }
 
 export async function loadLolData(signal?: AbortSignal): Promise<LolData> {

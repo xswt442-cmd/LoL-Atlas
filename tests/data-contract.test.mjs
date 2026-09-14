@@ -34,3 +34,15 @@ test("published data satisfies the atlas contract", async () => {
     assert.equal(createHash("sha256").update(content).digest("hex"), expected.sha256);
   }
 });
+
+test("wiki source covers the roster and carries per-ability detail", async () => {
+  const { data, errors } = await validateDataFile(new URL("../public/data/lol.json", import.meta.url));
+  assert.deepEqual(errors, []);
+  const wiki = data.wiki ?? {};
+  assert.equal(Object.keys(wiki).length, data.champions.length);
+  const ability = wiki.Ahri?.abilities.find((entry) => entry.slot === "Q");
+  assert.ok(ability, "sample ability must exist in the wiki source");
+  assert.ok(Object.keys(ability.stats).length > 0, "wiki ability must carry a stats grid");
+  assert.ok(Object.keys(ability.attrs).length > 0, "wiki ability must carry mechanic attributes");
+  assert.ok(ability.notes.length > 0, "wiki ability must carry notes");
+});
