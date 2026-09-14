@@ -11,29 +11,41 @@
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827" alt="React">
 </p>
 
-<p align="center">A Chinese League of Legends data atlas for champions, items, runes, summoner spells, and loadouts.</p>
+<p align="center">A compact site for browsing and organizing League of Legends data: champions, items, runes, summoner spells, and builds.</p>
 
 <p align="center"><a href="README.md">中文</a> · <a href="https://lol-atlas.xswt.fyi">Live site</a></p>
 
-## Development
+## What you can find here
+
+LOL Atlas puts commonly used game references into one clear, searchable interface. Pages and builds can also be shared through their URLs.
+
+- Champion index, search, base stats, abilities, and descriptions
+- Item search, stats, recipes, and upgrade paths
+- Rune trees, rune slots, and stat shards
+- Summoner spell references
+- A six-slot build planner with duplicate items and shareable URLs
+- URL state for the active module, selected record, search, and build
+
+Data is organized by League patch. Broader LOL Wiki content will be added over time, growing the site into a more complete League knowledge base.
+
+## Technology
+
+The frontend uses TypeScript, React, and Vinext with lightweight static data files, and is deployed on Cloudflare Workers. The project is designed to stay simple to access while making room for Wiki pages, version comparisons, and more lookup tools.
+
+## Development and deployment
 
 ```bash
 npm ci
 npm run dev
-```
 
-## Deployment
-
-```bash
 npm run deploy          # Production deployment
 npm run deploy:preview  # Upload a preview version
 ```
 
-## Tags
+Application releases and League data releases are tracked separately: application releases use `v*`, while game data releases use `patch-*`.
 
-- `v0.1.0`: LOL Atlas application release
-- `patch-16.18.1`: League data release
+Repository: [github.com/xswt442-cmd/LoL-Atlas](https://github.com/xswt442-cmd/LoL-Atlas)
 
-The tag workflow validates the two namespaces separately and uploads the matching artifact.
+Live site: [lol-atlas.xswt.fyi](https://lol-atlas.xswt.fyi)
 
 Data comes from Riot Data Dragon `zh_CN` and Tencent's official CDN. This project is not affiliated with or endorsed by Riot Games.
