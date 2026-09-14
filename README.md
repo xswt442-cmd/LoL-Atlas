@@ -1,8 +1,8 @@
 # LOL Atlas
 
-A Chinese data atlas for League of Legends.
+A data atlas for League of Legends.
 
-LOL Atlas turns versioned Riot and Tencent game data into a searchable, linkable reference for champions, items, runes, summoner spells, and loadouts. The public site is intended for `lol.xswt.fyi`.
+LOL Atlas turns versioned Riot and Tencent game data into a searchable, linkable reference for champions, items, runes, summoner spells, and loadouts. The public site is intended for `lol-atlas.xswt.fyi`.
 
 ## What is here
 

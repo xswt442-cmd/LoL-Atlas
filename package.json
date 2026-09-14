@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "A Chinese data atlas for League of Legends.",
-  "homepage": "https://lol.xswt.fyi",
+  "homepage": "https://lol-atlas.xswt.fyi",
   "engines": {
     "node": ">=22.13.0"
   },
