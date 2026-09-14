@@ -160,12 +160,17 @@ export interface WikiChampion {
 /** 版本时间线：某个版本里某字段的 [旧值, 新值] */
 export interface TimelineChange {
   v: string;
+  c?: Record<string, [number, number]>;
+  d?: 1;
+}
+
+export interface ChampionTimelineChange extends TimelineChange {
   c: Record<string, [number, number]>;
 }
 
 export interface LolTimeline {
   versions: string[];
-  champions: Record<string, TimelineChange[]>;
+  champions: Record<string, ChampionTimelineChange[]>;
   items: Record<string, TimelineChange[]>;
 }
 

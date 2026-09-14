@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { comparePatchVersions, latestPatchVersion } from "../scripts/lib/patch-version.mjs";
-import { validateDataFile } from "../scripts/validate-data.mjs";
+import { validateData, validateDataFile } from "../scripts/validate-data.mjs";
 import { classifyTag } from "../scripts/validate-tag.mjs";
 
 test("patch versions are ordered numerically", () => {
@@ -45,4 +45,18 @@ test("wiki source covers the roster and carries per-ability detail", async () =>
   assert.ok(Object.keys(ability.stats).length > 0, "wiki ability must carry a stats grid");
   assert.ok(Object.keys(ability.attrs).length > 0, "wiki ability must carry mechanic attributes");
   assert.ok(ability.notes.length > 0, "wiki ability must carry notes");
+});
+
+test("detail sources reject shapes that would crash the renderer", async () => {
+  const { data } = await validateDataFile(new URL("../public/data/lol.json", import.meta.url));
+
+  const badWiki = structuredClone(data);
+  badWiki.wiki.Ahri.abilities.find((entry) => entry.slot === "Q").notes = null;
+  assert.ok(validateData(badWiki).some((error) => error.includes("wiki Ahri Q notes")));
+
+  const badTimeline = structuredClone(data);
+  badTimeline.timeline.champions["103"] = [{ v: null, c: null }];
+  const timelineErrors = validateData(badTimeline);
+  assert.ok(timelineErrors.some((error) => error.includes("timeline.champions.103 has an invalid patch version")));
+  assert.ok(timelineErrors.some((error) => error.includes("timeline.champions.103 entry ? must carry changes")));
 });

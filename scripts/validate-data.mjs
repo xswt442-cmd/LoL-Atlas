@@ -19,6 +19,55 @@ function duplicates(values) {
   return [...repeated];
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isStringRecord(value) {
+  return isRecord(value) && Object.values(value).every((entry) => typeof entry === "string");
+}
+
+function validateTimelineCollection(collection, validIds, versions, label, changesRequired, errors) {
+  assert(isRecord(collection), `timeline.${label} must be keyed by record id`, errors);
+  if (!isRecord(collection)) return;
+
+  for (const [id, entries] of Object.entries(collection)) {
+    assert(validIds.has(id), `timeline.${label} references unknown id ${id}`, errors);
+    assert(Array.isArray(entries), `timeline.${label}.${id} must be an array`, errors);
+    if (!Array.isArray(entries)) continue;
+
+    const entryVersions = [];
+    for (const entry of entries) {
+      assert(isRecord(entry), `timeline.${label}.${id} entries must be objects`, errors);
+      if (!isRecord(entry)) continue;
+
+      const version = entry.v;
+      assert(typeof version === "string" && PATCH_PATTERN.test(version),
+        `timeline.${label}.${id} has an invalid patch version`, errors);
+      if (typeof version === "string") {
+        entryVersions.push(version);
+        assert(versions.has(version), `timeline.${label}.${id} references unlisted patch ${version}`, errors);
+      }
+
+      const hasChanges = isRecord(entry.c);
+      assert(changesRequired ? hasChanges : hasChanges || entry.d === 1,
+        `timeline.${label}.${id} entry ${version ?? "?"} must carry changes or a deletion marker`, errors);
+      if ("d" in entry) {
+        assert(entry.d === 1, `timeline.${label}.${id} entry ${version ?? "?"} has an invalid deletion marker`, errors);
+      }
+      if (!hasChanges) continue;
+
+      assert(Object.keys(entry.c).length > 0,
+        `timeline.${label}.${id} entry ${version ?? "?"} must not contain an empty change set`, errors);
+      for (const [field, pair] of Object.entries(entry.c)) {
+        assert(Array.isArray(pair) && pair.length === 2 && pair.every(Number.isFinite),
+          `timeline.${label}.${id} entry ${version ?? "?"} field ${field} must be a finite number pair`, errors);
+      }
+    }
+    assert(duplicates(entryVersions).length === 0, `timeline.${label}.${id} has duplicate patch entries`, errors);
+  }
+}
+
 export function validateData(data) {
   const errors = [];
   assert(PATCH_PATTERN.test(data?.meta?.version ?? ""), "meta.version must be a three-part patch", errors);
@@ -79,21 +128,44 @@ export function validateData(data) {
   // 英文原案副源：按 champion.id 索引，必须覆盖全部英雄且每个英雄 P/Q/W/E/R 齐全。
   // 这是 UI 里「EN 原案」视图的唯一数据来源，缺一块就会静默少显示一个技能。
   const wiki = data?.wiki;
-  assert(wiki && typeof wiki === "object", "wiki source must be present and keyed by champion id", errors);
+  assert(isRecord(wiki), "wiki source must be present and keyed by champion id", errors);
   for (const champion of champions) {
     const entry = wiki?.[champion.id];
-    assert(Boolean(entry), `champion ${champion.id} is missing a wiki entry`, errors);
-    if (!entry) continue;
-    const slots = (entry.abilities ?? []).map((ability) => ability.slot).filter(Boolean);
-    assert(SPELL_SLOTS.every((slot) => slots.includes(slot)),
-      `wiki ${champion.id} must cover P/Q/W/E/R`, errors);
-    for (const ability of entry.abilities ?? []) {
-      if (!ability?.slot) continue;
+    assert(isRecord(entry), `champion ${champion.id} is missing a wiki entry`, errors);
+    if (!isRecord(entry)) continue;
+    assert(Array.isArray(entry.trivia) && entry.trivia.every((item) => typeof item === "string"),
+      `wiki ${champion.id} trivia must be a string array`, errors);
+    assert(Array.isArray(entry.abilities), `wiki ${champion.id} abilities must be an array`, errors);
+    const abilities = Array.isArray(entry.abilities) ? entry.abilities : [];
+    const renderedAbilities = abilities.filter((ability) => isRecord(ability) && SPELL_SLOTS.includes(ability.slot));
+    const slots = renderedAbilities.map((ability) => ability.slot);
+    assert(SPELL_SLOTS.every((slot) => slots.filter((entrySlot) => entrySlot === slot).length === 1),
+      `wiki ${champion.id} must cover each of P/Q/W/E/R exactly once`, errors);
+    for (const ability of renderedAbilities) {
       assert(typeof ability.name === "string" && ability.name.length > 0,
         `wiki ${champion.id} ${ability.slot} must have an ability name`, errors);
       assert(typeof ability.description === "string" && ability.description.length > 0,
         `wiki ${champion.id} ${ability.slot} must have a description`, errors);
+      assert(typeof ability.flavor === "string", `wiki ${champion.id} ${ability.slot} flavor must be a string`, errors);
+      assert(isStringRecord(ability.stats), `wiki ${champion.id} ${ability.slot} stats must contain string values`, errors);
+      assert(isStringRecord(ability.attrs), `wiki ${champion.id} ${ability.slot} attrs must contain string values`, errors);
+      assert(Array.isArray(ability.notes) && ability.notes.every((note) => typeof note === "string"),
+        `wiki ${champion.id} ${ability.slot} notes must be a string array`, errors);
     }
+  }
+
+  const timeline = data?.timeline;
+  assert(isRecord(timeline), "timeline source must be present", errors);
+  if (isRecord(timeline)) {
+    assert(Array.isArray(timeline.versions), "timeline.versions must be an array", errors);
+    const versions = new Set(Array.isArray(timeline.versions) ? timeline.versions : []);
+    assert([...versions].every((version) => typeof version === "string" && PATCH_PATTERN.test(version)),
+      "timeline.versions must contain three-part patches", errors);
+    assert(versions.size === (timeline.versions?.length ?? 0), "timeline.versions must not contain duplicates", errors);
+    validateTimelineCollection(timeline.champions, new Set(champions.map((champion) => champion.key)), versions,
+      "champions", true, errors);
+    validateTimelineCollection(timeline.items, new Set(items.map((item) => item.id)), versions,
+      "items", false, errors);
   }
   return errors;
 }
