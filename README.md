@@ -44,7 +44,7 @@ npm run deploy:preview  # 上传预览版本
 
 应用版本和 League 数据版本分别记录：应用版本使用 `v*`，游戏数据使用 `patch-*`。
 
-推送 `v*` 或 `patch-*` 标签会触发 `Deploy` 工作流：校验标签 → 跑完整检查（`npm run ci`）→ 用 `wrangler deploy` 发布到 Cloudflare Worker `lol-atlas`。自定义域名在 Cloudflare 侧绑定，发布不会动它。分支推送不会发布；需要重新发布已有版本时，在 Actions 里手动运行 `Deploy` 并选择对应标签。
+推送 `v*` 或 `patch-*` 标签会触发 `Deploy` 工作流：校验标签 → 跑完整检查（`npm run ci`）→ 上传 release artifact → 用 `wrangler deploy` 发布到 Cloudflare Worker `lol-atlas`。artifact 先于发布产出，所以即使 Cloudflare 凭据缺失，也仍然留有可下载的构建。自定义域名在 Cloudflare 侧绑定，发布不会动它。分支推送不会发布；需要重新发布已有版本时，在 Actions 里手动运行 `Deploy` 并选择对应标签。
 
 工作流用到两个 repository secret：
 
