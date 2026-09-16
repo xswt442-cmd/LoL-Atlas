@@ -44,7 +44,7 @@ npm run deploy:preview  # Upload a preview version
 
 Application releases and League data releases are tracked separately: application releases use `v*`, while game data releases use `patch-*`.
 
-Pushing a `v*` or `patch-*` tag triggers the `Deploy` workflow: validate the tag, run the full check (`npm run ci`), then publish to the Cloudflare Worker `lol-atlas` with `wrangler deploy`. The custom domain is bound on the Cloudflare side and is untouched by deployments. Branch pushes never deploy; to re-publish an existing release, run `Deploy` manually from the Actions tab and pick the tag.
+Pushing a `v*` or `patch-*` tag triggers the `Deploy` workflow: validate the tag, run the full check (`npm run ci`), upload the release artifact, then publish to the Cloudflare Worker `lol-atlas` with `wrangler deploy`. The artifact is produced before publishing, so a missing Cloudflare secret still leaves a downloadable build behind. The custom domain is bound on the Cloudflare side and is untouched by deployments. Branch pushes never deploy; to re-publish an existing release, run `Deploy` manually from the Actions tab and pick the tag.
 
 The workflow needs two repository secrets:
 
