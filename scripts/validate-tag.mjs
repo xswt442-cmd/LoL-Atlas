@@ -29,7 +29,16 @@ async function main() {
   if (errors.length) throw new Error(errors.join("\n"));
   const result = classifyTag(tag, pkg.version, data.meta.version);
   if (result.kind === "patch") {
-    await readFile(path.join("data", "releases", result.version, "manifest.json"), "utf8");
+    try {
+      await readFile(path.join("data", "releases", result.version, "manifest.json"), "utf8");
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+      throw new Error(
+        `missing data/releases/${result.version}/manifest.json. Stage the release ` +
+        `(data/releases/${result.version}/lol.db plus the lol.json snapshot) and ` +
+        "commit `npm run release:manifest` output before pushing the patch tag.",
+      );
+    }
   }
   if (process.env.GITHUB_OUTPUT) {
     await appendFile(process.env.GITHUB_OUTPUT, `kind=${result.kind}\nversion=${result.version}\n`);
