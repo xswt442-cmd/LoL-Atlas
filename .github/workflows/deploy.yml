@@ -30,8 +30,8 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -45,12 +45,12 @@ jobs:
       # Keep the release artifact independent of publishing, so a missing
       # Cloudflare secret still leaves a downloadable build behind.
       - if: steps.tag.outputs.kind == 'app'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lol-atlas-${{ steps.tag.outputs.version }}
           path: dist/
       - if: steps.tag.outputs.kind == 'patch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lol-patch-${{ steps.tag.outputs.version }}
           path: data/releases/${{ steps.tag.outputs.version }}/
