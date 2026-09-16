@@ -99,7 +99,9 @@ function RecipeColumn({ title, empty, rows, onSelect, actionLabel }: {
   return <section className="recipe-column"><div className="section-label"><span>BUILD PATH</span><strong>{title}</strong></div>
     {rows.length ? rows.map((row) => <div className="recipe-row" key={row.id}>
       {row.icon ? <img src={row.icon} alt="" /> : null}<span><strong>{row.name}</strong><small>{row.meta}</small></span>
-      {onSelect ? <Button variant="ghost" size="sm" onClick={() => onSelect(row.id)}>{actionLabel}</Button> : null}
+      {/* Rows stand for unresolved components when data lags behind the CDN;
+          there is nothing to add from them. */}
+      {onSelect && row.id ? <Button variant="ghost" size="sm" onClick={() => onSelect(row.id)}>{actionLabel}</Button> : null}
     </div>) : <p className="muted-copy">{empty}</p>}
   </section>;
 }

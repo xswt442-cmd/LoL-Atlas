@@ -168,7 +168,7 @@ export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchP
           <SummonerWorkspace spells={data?.summoner ?? []} query={query} selectedId={selectedId} onSelect={setSelectedId} />
         ) : (
           <BuilderWorkspace itemIds={builderItemIds} items={data?.items ?? []}
-            onRemove={(index) => setBuilderItemIds((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+            onRemove={(slot) => setBuilderItemIds((current) => current.filter((_, index) => index !== slot))}
             onClear={() => setBuilderItemIds([])} />
         )}
       </Tabs>
@@ -200,9 +200,11 @@ function useAtlasWebMcp(state: {
   setBuilderItemIds: (ids: string[]) => void;
 }) {
   const latest = useRef(state);
+  // The tool handlers must see current values, so refresh on every render. A
+  // dependency array here would just be a new object literal each time.
   useEffect(() => {
     latest.current = state;
-  }, [state]);
+  });
 
   useEffect(() => {
     const context = (document as Document & { modelContext?: WebMcpContext }).modelContext;
@@ -357,7 +359,9 @@ function ChampionWorkspace({ champions, selected, onSelect, championCount, role,
         </ScrollArea>
       </section>
       <section className="champion-detail" aria-live="polite">
-        {selected ? <ChampionDetail champion={selected} wiki={wiki?.[selected.id]} timeline={timeline} /> : null}
+        {/* Keyed by champion so per-champion state — including the record of art
+            that failed to load — never leaks from one hero to the next. */}
+        {selected ? <ChampionDetail key={selected.id} champion={selected} wiki={wiki?.[selected.id]} timeline={timeline} /> : null}
       </section>
     </div>
   );
