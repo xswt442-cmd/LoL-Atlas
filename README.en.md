@@ -44,6 +44,17 @@ npm run deploy:preview  # Upload a preview version
 
 Application releases and League data releases are tracked separately: application releases use `v*`, while game data releases use `patch-*`.
 
+Pushing a `v*` or `patch-*` tag triggers the `Deploy` workflow: validate the tag, run the full check (`npm run ci`), then publish to the Cloudflare Worker `lol-atlas` with `wrangler deploy`. The custom domain is bound on the Cloudflare side and is untouched by deployments. Branch pushes never deploy; to re-publish an existing release, run `Deploy` manually from the Actions tab and pick the tag.
+
+The workflow needs two repository secrets:
+
+| Secret | Where to get it |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens, created from the **Edit Cloudflare Workers** template |
+| `CLOUDFLARE_ACCOUNT_ID` | Account ID shown on the right of the Workers overview page in the Cloudflare dashboard |
+
+Add them under Settings → Secrets and variables → Actions → New repository secret, or with `gh secret set CLOUDFLARE_API_TOKEN`.
+
 Repository: [github.com/xswt442-cmd/LoL-Atlas](https://github.com/xswt442-cmd/LoL-Atlas)
 
 Live site: [lol-atlas.xswt.fyi](https://lol-atlas.xswt.fyi)

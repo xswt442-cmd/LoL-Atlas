@@ -44,6 +44,17 @@ npm run deploy:preview  # 上传预览版本
 
 应用版本和 League 数据版本分别记录：应用版本使用 `v*`，游戏数据使用 `patch-*`。
 
+推送 `v*` 或 `patch-*` 标签会触发 `Deploy` 工作流：校验标签 → 跑完整检查（`npm run ci`）→ 用 `wrangler deploy` 发布到 Cloudflare Worker `lol-atlas`。自定义域名在 Cloudflare 侧绑定，发布不会动它。分支推送不会发布；需要重新发布已有版本时，在 Actions 里手动运行 `Deploy` 并选择对应标签。
+
+工作流用到两个 repository secret：
+
+| Secret | 取值 |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens，用 **Edit Cloudflare Workers** 模板创建 |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 仪表盘 Workers 概览页右侧的 Account ID |
+
+添加方式：仓库 Settings → Secrets and variables → Actions → New repository secret，或 `gh secret set CLOUDFLARE_API_TOKEN`。
+
 项目主页：[github.com/xswt442-cmd/LoL-Atlas](https://github.com/xswt442-cmd/LoL-Atlas)
 
 在线站点：[lol-atlas.xswt.fyi](https://lol-atlas.xswt.fyi)
