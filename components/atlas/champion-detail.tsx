@@ -249,7 +249,9 @@ export function ChampionDetail({ champion, wiki, timeline }: {
           </>
         ) : null}
 
-        {skins.length ? (
+        {/* Gate on what survived loading, otherwise a hero whose art all 404s
+            leaves an empty section heading behind. */}
+        {visibleSkins.length ? (
           <>
             <div className="section-label">
               <span>SKINS</span><strong>皮肤</strong><em className="section-count">{skins.length}</em>

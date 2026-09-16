@@ -44,6 +44,18 @@ npm run deploy:preview  # 上传预览版本
 
 应用版本和 League 数据版本分别记录：应用版本使用 `v*`，游戏数据使用 `patch-*`。
 
+### 发 data patch（`patch-*`）
+
+数据版发布需要先在 `data/releases/<version>/` 里落地三样东西，再打标签 —— `tag:validate` 会检查 `manifest.json`，缺了会在工作流第一步就失败：
+
+```bash
+npm run data:validate     # 数据契约自检（npm run check 也会跑）
+npm run release:manifest  # 依据 public/data/lol.json 生成 data/releases/<version>/manifest.json
+git add data/releases/<version> public/data/lol.json
+```
+
+`manifest.json` 记录 `lol.json` / `lol.db` 的 sha256，所以它必须在两个数据文件都放好后生成，并一起提交。
+
 推送 `v*` 或 `patch-*` 标签会触发 `Deploy` 工作流：校验标签 → 跑完整检查（`npm run ci`）→ 上传 release artifact → 用 `wrangler deploy` 发布到 Cloudflare Worker `lol-atlas`。artifact 先于发布产出，所以即使 Cloudflare 凭据缺失，也仍然留有可下载的构建。自定义域名在 Cloudflare 侧绑定，发布不会动它。分支推送不会发布；需要重新发布已有版本时，在 Actions 里手动运行 `Deploy` 并选择对应标签。
 
 工作流用到两个 repository secret：
