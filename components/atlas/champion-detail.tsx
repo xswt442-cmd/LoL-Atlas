@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Champion, LolTimeline, Playstyle, WikiChampion } from "@/lib/lol-data";
+import { Champion, loadChampionWiki, LolTimeline, Playstyle, WikiChampion } from "@/lib/lol-data";
 
 const CDN = "https://ddragon.leagueoflegends.com/cdn/img/champion";
 
@@ -144,10 +144,27 @@ export function WikiSpellStack({ wiki }: { wiki: WikiChampion }) {
   );
 }
 
-export function ChampionDetail({ champion, wiki, timeline }: {
-  champion: Champion; wiki?: WikiChampion; timeline?: LolTimeline;
+export function ChampionDetail({ champion, timeline }: {
+  champion: Champion; timeline?: LolTimeline;
 }) {
   const [showWiki, setShowWiki] = useState(false);
+  // `undefined` = not fetched yet, `null` = this champion has no wiki entry.
+  const [wiki, setWiki] = useState<WikiChampion | null | undefined>(undefined);
+  const [wikiFailed, setWikiFailed] = useState(false);
+  // Loaded on demand: the wiki is 58% of the snapshot and only renders behind
+  // this switch, so it is fetched per champion instead of shipped to everyone.
+  useEffect(() => {
+    if (!showWiki || wiki !== undefined || wikiFailed) return;
+    const controller = new AbortController();
+    loadChampionWiki(champion.key, controller.signal)
+      .then(setWiki)
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === "AbortError") return;
+        setWikiFailed(true);
+      });
+    return () => controller.abort();
+  }, [champion.key, showWiki, wiki, wikiFailed]);
+  const wikiLoading = showWiki && wiki === undefined && !wikiFailed;
   // 加载失败的图用状态记账，绝不把 <figure> 从 DOM 里 remove 掉。
   // 命令式 remove 会让 React 的 fiber 树和真实 DOM 脱节，之后任何一次提交只要
   // 需要卸载那个节点，就会抛 "Failed to execute 'removeChild' on 'Node'" 把页面打崩。
@@ -211,7 +228,9 @@ export function ChampionDetail({ champion, wiki, timeline }: {
         <div className="section-label">
           <span>{wikiMode ? "LOLWIKI / EN" : "ABILITIES"}</span>
           <strong>{wikiMode ? "英文原案" : "技能档案"}</strong>
-          {wiki ? (
+          {wikiLoading ? <em className="section-count">正在加载英文原案…</em> : null}
+          {wikiFailed ? <em className="section-count">英文原案加载失败</em> : null}
+          {wiki !== null ? (
             <button type="button" className="source-toggle" onClick={() => setShowWiki((value) => !value)}>
               {wikiMode ? "← 中文（CDN）" : "EN 原案 (lolwiki) →"}
             </button>
