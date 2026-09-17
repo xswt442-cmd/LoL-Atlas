@@ -188,7 +188,9 @@ export interface LolData {
 }
 
 export async function loadLolData(signal?: AbortSignal): Promise<LolData> {
-  const response = await fetch("/data/lol.json", { signal });
+  // Injected at build time by `build/hashed-data-asset.ts`: the URL carries a
+  // hash of the file, which is what lets `_headers` cache it immutably.
+  const response = await fetch(__LOL_DATA_URL__, { signal });
   if (!response.ok) throw new Error(`数据加载失败（HTTP ${response.status}）`);
   return response.json() as Promise<LolData>;
 }
