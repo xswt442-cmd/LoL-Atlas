@@ -36,6 +36,8 @@ async function exists(path: string): Promise<boolean> {
 export function dataAssets(): Plugin {
   let root = process.cwd();
   let hash = "";
+  let mainPayload = "";
+  let shards: Array<[string, string]> = [];
   let written = false;
 
   return {
@@ -43,17 +45,34 @@ export function dataAssets(): Plugin {
     configResolved(config) {
       root = config.root;
     },
-    // `define` has to come back from this hook, so the hash is computed from the
-    // project root rather than from `config.root` (which is not final yet).
+    // The hash covers the bytes the browser actually receives, not the source
+    // file: a change to how the snapshot is split has to move the URL too, or an
+    // `immutable` entry would keep serving the old shape.
+    //
+    // `define` has to come back from this hook, so this reads from the project
+    // root rather than from `config.root` (which is not final yet).
     config() {
-      const raw = readFileSync(resolve(process.cwd(), ...SOURCE_PATH));
-      hash = createHash("sha256").update(raw).digest("hex").slice(0, HASH_LENGTH);
+      if (!mainPayload) {
+        const dataset = JSON.parse(readFileSync(resolve(process.cwd(), ...SOURCE_PATH), "utf8"));
+        const wiki = dataset.wiki ?? {};
+        delete dataset.wiki;
+        const keyByChampionId = new Map(
+          dataset.champions.map((champion: { id: string; key: string }) => [champion.id, champion.key]),
+        );
+        mainPayload = JSON.stringify(dataset);
+        // `wiki` is keyed by champion id, but the numeric `key` is what names the
+        // shard: ids like `Kha'Zix` would need percent-encoding in the URL and
+        // the asset layer matches on the raw path.
+        shards = Object.entries(wiki).flatMap(([championId, entry]) => {
+          const key = keyByChampionId.get(championId);
+          // A wiki entry with no matching champion has no page to render on.
+          return key ? [[`${key}.json`, JSON.stringify(entry)] as [string, string]] : [];
+        });
+        hash = createHash("sha256").update(mainPayload).digest("hex").slice(0, HASH_LENGTH);
+      }
       return {
         define: {
           __LOL_DATA_URL__: JSON.stringify(`/data/lol.${hash}.json`),
-          // `wiki` is keyed by champion id, but the numeric `key` is what names
-          // the shard: ids like `Kha'Zix` would need percent-encoding in the URL
-          // and the asset layer matches on the raw path.
           __LOL_WIKI_BASE__: JSON.stringify(`/data/${WIKI_DIRECTORY}/${hash}`),
         },
       };
@@ -61,36 +80,22 @@ export function dataAssets(): Plugin {
     // vinext runs five builds through this hook (one per step). The client
     // environment only appears in step 4, and it wipes and rebuilds its output
     // directory when it does — anything written before that is thrown away, so
-    // wait until the client output exists. The source is read from `public/`
-    // rather than from the client directory because the order between this hook
-    // and the public-directory copy is not guaranteed.
+    // wait until the client output exists.
     async closeBundle() {
       if (!hash || written) return;
       if (!(await exists(resolve(root, "dist", "client", "_next")))) return;
-      const source = resolve(root, ...SOURCE_PATH);
-      if (!(await exists(source))) return;
+      if (!(await exists(resolve(root, ...SOURCE_PATH)))) return;
       written = true;
 
       const outputDirectory = resolve(root, ...OUTPUT_DIRECTORY);
-      const dataset = JSON.parse(readFileSync(source, "utf8"));
-      const wiki = dataset.wiki ?? {};
-      delete dataset.wiki;
-      const keyByChampionId = new Map(
-        dataset.champions.map((champion: { id: string; key: string }) => [champion.id, champion.key]),
-      );
-
       await mkdir(outputDirectory, { recursive: true });
-      await writeFile(resolve(outputDirectory, `lol.${hash}.json`), JSON.stringify(dataset), "utf8");
+      await writeFile(resolve(outputDirectory, `lol.${hash}.json`), mainPayload, "utf8");
 
       const wikiDirectory = resolve(outputDirectory, WIKI_DIRECTORY, hash);
       await mkdir(wikiDirectory, { recursive: true });
-      const shards = Object.entries(wiki).map(([championId, entry]) => {
-        const key = keyByChampionId.get(championId);
-        // A wiki entry with no matching champion has no page to render on.
-        if (!key) return Promise.resolve();
-        return writeFile(resolve(wikiDirectory, `${key}.json`), JSON.stringify(entry), "utf8");
-      });
-      await Promise.all(shards);
+      await Promise.all(shards.map(([filename, payload]) =>
+        writeFile(resolve(wikiDirectory, filename), payload, "utf8"),
+      ));
     },
   };
 }
