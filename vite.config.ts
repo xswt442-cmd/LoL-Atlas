@@ -2,6 +2,7 @@ import vinext from "vinext";
 import { defineConfig } from "vite";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
 import { assetHeaders } from "./build/asset-headers";
+import { hashedDataAsset } from "./build/hashed-data-asset";
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
@@ -39,6 +40,8 @@ export default defineConfig(async () => {
         inspectorPort: false,
         config: localBindingConfig,
       }),
+      // Content-addresses the data snapshot so it can be cached immutably.
+      hashedDataAsset(),
       // Registered last so its closeBundle appends to the `_headers` vinext
       // generated instead of being overwritten by it.
       assetHeaders(),
