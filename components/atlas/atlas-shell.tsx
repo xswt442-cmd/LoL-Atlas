@@ -11,7 +11,7 @@ import { ChampionDetail } from "@/components/atlas/champion-detail";
 import { ItemWorkspace } from "@/components/atlas/item-workspace";
 import { RuneWorkspace } from "@/components/atlas/rune-workspace";
 import { SummonerWorkspace } from "@/components/atlas/summoner-workspace";
-import { Champion, loadLolData, LolData, LolTimeline, WikiChampion } from "@/lib/lol-data";
+import { Champion, loadLolData, LolData, LolTimeline } from "@/lib/lol-data";
 
 const navItems = [
   { value: "champions", label: "英雄", icon: Swords },
@@ -159,7 +159,7 @@ export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchP
         {tab === "champions" ? (
           <ChampionWorkspace champions={visibleChampions} selected={selected} onSelect={setSelectedId}
             championCount={champions.length} role={championRole} roleCounts={roleCounts} onRoleChange={setChampionRole}
-            loading={!data && !error} error={error} wiki={data?.wiki} timeline={data?.timeline} />
+            loading={!data && !error} error={error} timeline={data?.timeline} />
         ) : tab === "items" ? (
           <ItemWorkspace items={data?.items ?? []} query={query} selectedId={selectedId} onSelect={setSelectedId} onAdd={addBuilderItem} />
         ) : tab === "runes" ? (
@@ -279,11 +279,11 @@ function useAtlasWebMcp(state: {
 
 const roleOrder = ["战士", "坦克", "法师", "刺客", "射手", "辅助"];
 
-function ChampionWorkspace({ champions, selected, onSelect, championCount, role, roleCounts, onRoleChange, loading, error, wiki, timeline }: {
+function ChampionWorkspace({ champions, selected, onSelect, championCount, role, roleCounts, onRoleChange, loading, error, timeline }: {
   champions: Champion[]; selected: Champion | null; onSelect: (id: string) => void; loading: boolean;
   championCount: number; role: string | null; roleCounts: Map<string, number>;
   onRoleChange: (role: string | null) => void;
-  error: string; wiki?: Record<string, WikiChampion>; timeline?: LolTimeline;
+  error: string; timeline?: LolTimeline;
 }) {
   const groupRefs = useRef(new Map<string, HTMLDivElement>());
 
@@ -361,7 +361,7 @@ function ChampionWorkspace({ champions, selected, onSelect, championCount, role,
       <section className="champion-detail" aria-live="polite">
         {/* Keyed by champion so per-champion state — including the record of art
             that failed to load — never leaks from one hero to the next. */}
-        {selected ? <ChampionDetail key={selected.id} champion={selected} wiki={wiki?.[selected.id]} timeline={timeline} /> : null}
+        {selected ? <ChampionDetail key={selected.id} champion={selected} timeline={timeline} /> : null}
       </section>
     </div>
   );

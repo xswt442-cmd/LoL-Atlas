@@ -174,6 +174,13 @@ export interface LolTimeline {
   items: Record<string, TimelineChange[]>;
 }
 
+/**
+ * 浏览器拿到的数据集 —— pipeline 输出的快照**去掉 `wiki`** 之后的样子。
+ *
+ * 英文原案（`wiki`，按英雄 id 索引）占了快照 58% 的体积，却只在详情页切到
+ * "EN 原案"时才用得上，所以构建时被拆成每个英雄一个文件（见 `build/data-assets.ts`），
+ * 需要时用 `loadChampionWiki` 按 `champion.key` 取。
+ */
 export interface LolData {
   meta: { version: string; tx_version?: string; built_at?: string };
   champions: Champion[];
@@ -181,16 +188,28 @@ export interface LolData {
   trees: RuneTree[];
   stat_mods: StatMod[];
   summoner: SummonerSpell[];
-  /** 英文原案副源，按英雄 key 索引；未跑 wiki 抓取时可缺省 */
-  wiki?: Record<string, WikiChampion>;
   /** 版本改动（逐字段 diff） */
   timeline?: LolTimeline;
 }
 
 export async function loadLolData(signal?: AbortSignal): Promise<LolData> {
-  // Injected at build time by `build/hashed-data-asset.ts`: the URL carries a
-  // hash of the file, which is what lets `_headers` cache it immutably.
+  // Injected at build time by `build/data-assets.ts`: the URL carries a hash of
+  // the dataset, which is what lets `_headers` cache it immutably.
   const response = await fetch(__LOL_DATA_URL__, { signal });
   if (!response.ok) throw new Error(`数据加载失败（HTTP ${response.status}）`);
   return response.json() as Promise<LolData>;
+}
+
+/**
+ * 取单个英雄的英文原案（lolwiki 副源）。
+ *
+ * 按 `champion.key` 命名分片，而不是英雄 id —— id 里有 `Kha'Zix`、`Kog'Maw`
+ * 这类字符，塞进 URL 需要百分号转义，而静态资源按原始路径匹配。
+ * 该英雄没有原案条目时返回 null。
+ */
+export async function loadChampionWiki(key: string, signal?: AbortSignal): Promise<WikiChampion | null> {
+  const response = await fetch(`${__LOL_WIKI_BASE__}/${key}.json`, { signal });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`英文原案加载失败（HTTP ${response.status}）`);
+  return response.json() as Promise<WikiChampion>;
 }
