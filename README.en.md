@@ -15,9 +15,7 @@
 
 <p align="center"><a href="README.md">中文</a> · <a href="https://lol-atlas.xswt.fyi">Live site</a></p>
 
-## What you can find here
-
-LOL Atlas puts commonly used game references into one clear, searchable interface. Pages and builds can also be shared through their URLs.
+## Features
 
 - Champion index, search, base stats, abilities, and descriptions
 - Item search, stats, recipes, and upgrade paths
@@ -26,49 +24,33 @@ LOL Atlas puts commonly used game references into one clear, searchable interfac
 - A six-slot build planner with duplicate items and shareable URLs
 - URL state for the active module, selected record, search, and build
 
-Data is organized by League patch. Broader LOL Wiki content will be added over time, growing the site into a more complete League knowledge base.
+Data is organized by League patch.
 
-## Technology
-
-The frontend uses TypeScript, React, and Vinext with lightweight static data files, and is deployed on Cloudflare Workers. The project is designed to stay simple to access while making room for Wiki pages, version comparisons, and more lookup tools.
-
-## Development and deployment
+## Development
 
 ```bash
 npm ci
-npm run dev
-
-npm run deploy          # Production deployment
-npm run deploy:preview  # Upload a preview version
+npm run dev     # Local development
+npm run check   # typecheck + lint + data:validate + test
+npm run build   # Writes dist/
 ```
 
-Application releases and League data releases are tracked separately: application releases use `v*`, while game data releases use `patch-*`.
+## Deployment
 
-### Shipping a data patch (`patch-*`)
+Pushing a `v*` (application) or `patch-*` (data) tag triggers the `Deploy` workflow: validate the tag,
+run `npm run ci`, upload the release artifact, then publish to the Cloudflare Worker `lol-atlas` with
+`wrangler deploy`. The artifact is produced before publishing, so a missing credential still leaves a
+downloadable build behind. Branch pushes never deploy; to re-publish an existing release, run `Deploy`
+manually from the Actions tab.
 
-A data release needs its files staged under `data/releases/<version>/` before the tag lands — `tag:validate` checks `manifest.json`, and the workflow fails on its first step if it is absent:
+A data release needs its files staged under `data/releases/<version>/` and committed first —
+`tag:validate` checks the `manifest.json` inside it:
 
 ```bash
-npm run data:validate     # Data contract check (also part of `npm run check`)
-npm run release:manifest  # Writes data/releases/<version>/manifest.json from public/data/lol.json
+npm run release:manifest   # Writes manifest.json (with sha256) from public/data/lol.json
 git add data/releases/<version> public/data/lol.json
 ```
 
-The manifest records the sha256 of `lol.json` and `lol.db`, so generate it after both data files are in place and commit them together.
-
-Pushing a `v*` or `patch-*` tag triggers the `Deploy` workflow: validate the tag, run the full check (`npm run ci`), upload the release artifact, then publish to the Cloudflare Worker `lol-atlas` with `wrangler deploy`. The artifact is produced before publishing, so a missing Cloudflare secret still leaves a downloadable build behind. The custom domain is bound on the Cloudflare side and is untouched by deployments. Branch pushes never deploy; to re-publish an existing release, run `Deploy` manually from the Actions tab and pick the tag.
-
-The workflow needs two repository secrets:
-
-| Secret | Where to get it |
-| --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens, created from the **Edit Cloudflare Workers** template |
-| `CLOUDFLARE_ACCOUNT_ID` | Account ID shown on the right of the Workers overview page in the Cloudflare dashboard |
-
-Add them under Settings → Secrets and variables → Actions → New repository secret, or with `gh secret set CLOUDFLARE_API_TOKEN`.
-
-Repository: [github.com/xswt442-cmd/LoL-Atlas](https://github.com/xswt442-cmd/LoL-Atlas)
-
-Live site: [lol-atlas.xswt.fyi](https://lol-atlas.xswt.fyi)
+The workflow needs two repository secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
 Data comes from Riot Data Dragon `zh_CN` and Tencent's official CDN. This project is not affiliated with or endorsed by Riot Games.
