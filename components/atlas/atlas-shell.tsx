@@ -12,6 +12,7 @@ import { ItemWorkspace } from "@/components/atlas/item-workspace";
 import { RuneWorkspace } from "@/components/atlas/rune-workspace";
 import { SummonerWorkspace } from "@/components/atlas/summoner-workspace";
 import { Champion, loadLolData, LolData, LolTimeline } from "@/lib/lol-data";
+import { historyActionFor } from "@/lib/url-history.mjs";
 
 const navItems = [
   { value: "champions", label: "英雄", icon: Swords },
@@ -129,12 +130,12 @@ export function AtlasShell({ initialSearchParams }: { initialSearchParams: strin
     // Opening a module or picking another record is a navigation: it earns a
     // history entry, so Back returns to the previous one. Search keystrokes and
     // loadout edits only rewrite the current entry — otherwise typing a name
-    // would bury the previous page under a dozen entries.
-    const previous = lastNavigationRef.current;
-    const navigated = previous !== null && (previous.tab !== tab || previous.selectedId !== visibleSelectedId);
-    if (navigated) window.history.pushState(null, "", url);
+    // would bury the previous page under a dozen entries. The rule itself lives
+    // in lib/url-history.mjs so it can be tested.
+    const next = { tab, selectedId: visibleSelectedId };
+    if (historyActionFor(lastNavigationRef.current, next) === "push") window.history.pushState(null, "", url);
     else window.history.replaceState(null, "", url);
-    lastNavigationRef.current = { tab, selectedId: visibleSelectedId };
+    lastNavigationRef.current = next;
   }, [builderItemIds, query, tab, visibleSelectedId]);
 
   useAtlasWebMcp({ tab, query, selectedId: visibleSelectedId, builderItemIds, setTab, setQuery, setSelectedId, setBuilderItemIds });
