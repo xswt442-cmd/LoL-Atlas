@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Champion, loadChampionWiki, LolTimeline, Playstyle, WikiChampion } from "@/lib/lol-data";
+import { Champion, loadChampionWiki, LolTimeline, Playstyle, WikiAbility, WikiChampion } from "@/lib/lol-data";
 
 const CDN = "https://ddragon.leagueoflegends.com/cdn/img/champion";
 
@@ -101,16 +101,23 @@ function PatchHistory({ changes }: { changes: LolTimeline["champions"][string] }
  * 对应项，所以这里不做逐字段混排，缺数据就留空，不拿中文内容顶替。
  */
 export function WikiSpellStack({ wiki }: { wiki: WikiChampion }) {
-  const bySlot = new Map(wiki.abilities.filter((ability) => ability.slot).map((ability) => [ability.slot, ability]));
+  // Grouped rather than slot→ability: a kit that lists two entries under one slot
+  // would otherwise lose everything but the last. Today's data has no such case,
+  // but the map made that failure silent.
+  const bySlot = new Map<string, WikiAbility[]>();
+  for (const ability of wiki.abilities) {
+    if (!ability.slot) continue;
+    const group = bySlot.get(ability.slot);
+    if (group) group.push(ability);
+    else bySlot.set(ability.slot, [ability]);
+  }
   return (
     <div className="wiki-stack">
-      {wikiSlots.map((slot) => {
-        const ability = bySlot.get(slot);
-        if (!ability) return null;
+      {wikiSlots.flatMap((slot) => (bySlot.get(slot) ?? []).map((ability, index) => {
         const stats = Object.entries(ability.stats ?? {});
         const attrs = Object.entries(ability.attrs ?? {});
         return (
-          <article key={slot} className="wiki-card">
+          <article key={`${slot}-${index}`} className="wiki-card">
             <div className="wiki-card-head">
               <span className="wiki-slot">{slot}</span>
               <h3>{ability.name}</h3>
@@ -139,7 +146,7 @@ export function WikiSpellStack({ wiki }: { wiki: WikiChampion }) {
             ) : null}
           </article>
         );
-      })}
+      }))}
     </div>
   );
 }

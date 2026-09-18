@@ -32,16 +32,23 @@ function readInitialState(search: string) {
   };
 }
 
-export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchParams: string; appVersion: string }) {
+export function AtlasShell({ initialSearchParams }: { initialSearchParams: string }) {
   const [initial] = useState(() => readInitialState(initialSearchParams));
   const [data, setData] = useState<LolData | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState(initial.tab);
   const [query, setQuery] = useState(initial.query);
-  const [selectedId, setSelectedId] = useState(initial.id);
+  // One selection per module: switching tabs used to carry the previous id over,
+  // which made the new module look up a record that cannot exist in it.
+  const [selectedByTab, setSelectedByTab] = useState<Record<string, string>>(() => ({ [initial.tab]: initial.id }));
   const [championRole, setChampionRole] = useState<string | null>(null);
   const [builderItemIds, setBuilderItemIds] = useState<string[]>(initial.itemIds);
   const searchRef = useRef<HTMLInputElement>(null);
+  // Last (tab, selection) pair written to the address bar, so the effect below
+  // can tell a real navigation apart from a search keystroke.
+  const lastNavigationRef = useRef<{ tab: string; selectedId: string } | null>(null);
+  const selectedId = selectedByTab[tab] ?? "";
+  const setSelectedId = (id: string) => setSelectedByTab((current) => ({ ...current, [tab]: id }));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,8 +70,11 @@ export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchP
       const next = readInitialState(window.location.search);
       setTab(next.tab);
       setQuery(next.query);
-      setSelectedId(next.id);
+      setSelectedByTab((current) => ({ ...current, [next.tab]: next.id }));
       setBuilderItemIds(next.itemIds);
+      // Where the user landed is now "here" — the effect below must not treat it
+      // as a fresh navigation and push another entry on top of it.
+      lastNavigationRef.current = { tab: next.tab, selectedId: next.id };
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("popstate", onPopState);
@@ -114,7 +124,17 @@ export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchP
     if (query) params.set("q", query);
     if (visibleSelectedId && tab !== "builder") params.set("id", visibleSelectedId);
     if (builderItemIds.length) params.set("b", builderItemIds.join(","));
-    window.history.replaceState(null, "", `?${params.toString()}`);
+    const url = `?${params.toString()}`;
+
+    // Opening a module or picking another record is a navigation: it earns a
+    // history entry, so Back returns to the previous one. Search keystrokes and
+    // loadout edits only rewrite the current entry — otherwise typing a name
+    // would bury the previous page under a dozen entries.
+    const previous = lastNavigationRef.current;
+    const navigated = previous !== null && (previous.tab !== tab || previous.selectedId !== visibleSelectedId);
+    if (navigated) window.history.pushState(null, "", url);
+    else window.history.replaceState(null, "", url);
+    lastNavigationRef.current = { tab, selectedId: visibleSelectedId };
   }, [builderItemIds, query, tab, visibleSelectedId]);
 
   useAtlasWebMcp({ tab, query, selectedId: visibleSelectedId, builderItemIds, setTab, setQuery, setSelectedId, setBuilderItemIds });
@@ -139,7 +159,7 @@ export function AtlasShell({ initialSearchParams, appVersion }: { initialSearchP
           <span className="version-patch">{data ? `PATCH ${data.meta.version}` : "LOADING"}</span>
           <span className="version-site">
             <span className="status-dot" />
-            <span>v{appVersion}</span>
+            <span>v{__APP_VERSION__}</span>
             {data?.meta.tx_version ? <span className="version-sep">tx {data.meta.tx_version}</span> : null}
             {data?.meta.built_at ? <span className="version-date">{data.meta.built_at.slice(0, 10)}</span> : null}
           </span>
