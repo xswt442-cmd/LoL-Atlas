@@ -1,5 +1,6 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
+import pkg from "./package.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
 import { assetHeaders } from "./build/asset-headers";
 import { dataAssets } from "./build/data-assets";
@@ -29,6 +30,10 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // Read once here rather than importing package.json from the page: a runtime
+    // property access cannot be tree-shaken, so the whole dependency list would
+    // ride along in the server bundle just to print one string.
+    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     server: {
       ...(managedLinux ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] } : {}),
       ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),

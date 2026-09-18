@@ -6,9 +6,16 @@ on:
 
 jobs:
   web:
+    # Windows keeps the type/lint/test signal — the project is developed there —
+    # without paying for a second full build. The bundle is only ever produced on
+    # Linux, which is also what Deploy publishes from.
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            build: true
+          - os: windows-latest
+            build: false
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -17,7 +24,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run ci
+      - if: matrix.build
+        run: npm run ci
+      - if: ${{ !matrix.build }}
+        run: npm run check
 
   pipeline:
     runs-on: ubuntu-latest
