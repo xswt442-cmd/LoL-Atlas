@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://lol-atlas.xswt.fyi"><img src="https://img.shields.io/badge/Cloudflare-live-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare"></a>
-  <img src="https://img.shields.io/badge/patch-16.18.1-D6AB54" alt="Patch 16.18.1">
+  <a href="https://lol-atlas.xswt.fyi"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Flol-atlas.xswt.fyi%2Fdata%2Fmeta.json&query=%24.version&label=patch&color=D6AB54" alt="Patch"></a>
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111827" alt="React">
 </p>

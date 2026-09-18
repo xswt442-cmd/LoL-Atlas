@@ -21,6 +21,10 @@ import type { Plugin } from "vite";
 const SOURCE_PATH = ["public", "data", "lol.json"];
 const OUTPUT_DIRECTORY = ["dist", "client", "data"];
 const WIKI_DIRECTORY = "wiki";
+// Deliberately *not* content-addressed: outside consumers (the shields.io patch
+// badge in both READMEs) need one URL that stays put. It holds only `meta`, so
+// it is a few hundred bytes and can carry a short max-age instead.
+const META_FILENAME = "meta.json";
 const HASH_LENGTH = 8;
 
 async function exists(path: string): Promise<boolean> {
@@ -37,6 +41,7 @@ export function dataAssets(): Plugin {
   let root = process.cwd();
   let hash = "";
   let mainPayload = "";
+  let metaPayload = "";
   let shards: Array<[string, string]> = [];
   let written = false;
 
@@ -60,6 +65,7 @@ export function dataAssets(): Plugin {
           dataset.champions.map((champion: { id: string; key: string }) => [champion.id, champion.key]),
         );
         mainPayload = JSON.stringify(dataset);
+        metaPayload = JSON.stringify(dataset.meta ?? {});
         // `wiki` is keyed by champion id, but the numeric `key` is what names the
         // shard: ids like `Kha'Zix` would need percent-encoding in the URL and
         // the asset layer matches on the raw path.
@@ -90,6 +96,7 @@ export function dataAssets(): Plugin {
       const outputDirectory = resolve(root, ...OUTPUT_DIRECTORY);
       await mkdir(outputDirectory, { recursive: true });
       await writeFile(resolve(outputDirectory, `lol.${hash}.json`), mainPayload, "utf8");
+      await writeFile(resolve(outputDirectory, META_FILENAME), metaPayload, "utf8");
 
       const wikiDirectory = resolve(outputDirectory, WIKI_DIRECTORY, hash);
       await mkdir(wikiDirectory, { recursive: true });
