@@ -49,8 +49,8 @@ if ! flock -n 9; then
   exit 75
 fi
 
-# Catch an installer started outside this helper. Linux exposes both its command
-# line and working directory through /proc, so avoid broad process-name matches.
+# 拦截绕过本脚本直接启动的安装进程。Linux 通过 /proc 同时暴露命令行和工作目录，
+# 所以这里按工作目录判断，不去做粗糙的进程名匹配。
 for process in /proc/[0-9]*; do
   pid="${process##*/}"
   [[ "${pid}" != "$$" && "${pid}" != "${PPID}" ]] || continue
@@ -65,7 +65,7 @@ done
 
 lockfile_sha256="$(sha256sum "${SITES_PROJECT_ROOT}/package-lock.json" | awk '{print $1}')"
 use_seeded_cache=0
-# Report seed selection separately from package cache hits or downloads.
+# 把"是否用了镜像种子"与"命中包缓存/走网络下载"分开上报。
 cache_seed_result=seed_unavailable
 seed_cache="${SITES_NPM_CACHE_SEED:-}"
 if [[ -n "${seed_cache}" && -d "${seed_cache}" ]]; then
@@ -190,8 +190,8 @@ await writeFile(
     platform: `${process.platform}-${process.arch}`,
   }, null, 2)}\n`,
 );
-// The measured plugin wrapper supplies an existing private file for this attempt.
-// Cache telemetry must not change the install result or create arbitrary files.
+// 计量插件会为本次调用提供一个已存在的私有文件。
+// 缓存遥测不得改变安装结果，也不得随意创建文件。
 const reportPath = process.env.SITES_INSTALL_REPORT_PATH;
 if (reportPath) {
   let report;
@@ -202,7 +202,7 @@ if (reportPath) {
       await report.writeFile(`${JSON.stringify({ version: 1, cache_seed: process.argv[4] })}\n`);
     }
   } catch {
-    // Leave the decision unavailable rather than inventing seed use or failing setup.
+    // 上报不了就留空，而不是编一个"用了种子"或让整个安装失败。
   } finally {
     await report?.close().catch(() => {});
   }

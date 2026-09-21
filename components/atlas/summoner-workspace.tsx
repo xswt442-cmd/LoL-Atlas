@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { ChevronRight } from "lucide-react";
-import { SummonerSpell } from "@/lib/lol-data";
+import type { SummonerSpell } from "@/lib/lol-types";
 
 export function SummonerWorkspace({ spells, query, selectedId, onSelect }: {
   spells: SummonerSpell[]; query: string; selectedId: string; onSelect: (id: string) => void;

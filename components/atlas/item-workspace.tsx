@@ -6,7 +6,7 @@ import { ChevronRight, PackagePlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Item, itemStatFields } from "@/lib/lol-data";
+import { itemStatFields, type Item } from "@/lib/lol-types";
 
 export function ItemWorkspace({ items, query, selectedId, onSelect, onAdd }: {
   items: Item[];
@@ -99,8 +99,7 @@ function RecipeColumn({ title, empty, rows, onSelect, actionLabel }: {
   return <section className="recipe-column"><div className="section-label"><span>BUILD PATH</span><strong>{title}</strong></div>
     {rows.length ? rows.map((row) => <div className="recipe-row" key={row.id}>
       {row.icon ? <img src={row.icon} alt="" /> : null}<span><strong>{row.name}</strong><small>{row.meta}</small></span>
-      {/* Rows stand for unresolved components when data lags behind the CDN;
-          there is nothing to add from them. */}
+      {/* 数据落后于 CDN 时，这里的行代表解析不出的组件，没什么可"加入"的 */}
       {onSelect && row.id ? <Button variant="ghost" size="sm" onClick={() => onSelect(row.id)}>{actionLabel}</Button> : null}
     </div>) : <p className="muted-copy">{empty}</p>}
   </section>;

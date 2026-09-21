@@ -1,64 +1,43 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Boxes, ChevronRight, Database, Gem, History, Search, Shield, Sparkles, Swords } from "lucide-react";
+import { Database, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/tabs";
+import { AtlasNav } from "@/components/atlas/atlas-nav";
 import { BuilderWorkspace } from "@/components/atlas/builder-workspace";
-import { ChampionDetail } from "@/components/atlas/champion-detail";
+import { ChampionWorkspace } from "@/components/atlas/champion-workspace";
 import { ItemWorkspace } from "@/components/atlas/item-workspace";
 import { RuneWorkspace } from "@/components/atlas/rune-workspace";
 import { SummonerWorkspace } from "@/components/atlas/summoner-workspace";
-import { Champion, loadLolData, LolData, LolTimeline } from "@/lib/lol-data";
-import { historyActionFor } from "@/lib/url-history.mjs";
+import { useAtlasWebMcp } from "@/hooks/use-atlas-webmcp";
+import { useLolData } from "@/hooks/use-lol-data";
+import { historyActionFor, MAX_LOADOUT_ITEMS, readAtlasState, writeAtlasState } from "@/lib/atlas-url.mjs";
 
-const navItems = [
-  { value: "champions", label: "英雄", icon: Swords },
-  { value: "items", label: "装备", icon: Shield },
-  { value: "runes", label: "符文", icon: Gem },
-  { value: "summoner", label: "召唤师技能", icon: Sparkles },
-  { value: "builder", label: "配装", icon: Boxes },
-] as const;
-
-function readInitialState(search: string) {
-  const params = new URLSearchParams(search);
-  const requestedTab = params.get("tab");
-  return {
-    tab: navItems.some((item) => item.value === requestedTab) ? requestedTab! : "champions",
-    query: params.get("q") ?? "",
-    id: params.get("id") ?? "",
-    itemIds: (params.get("b") ?? "").split(",").filter(Boolean).slice(0, 6),
-  };
-}
-
+/**
+ * 页面编排：持有跨模块状态（模块、搜索词、各模块选中项、配装），把它与地址栏保持同步，
+ * 然后分派到各自的模块组件。
+ *
+ * 各模块内部的状态（定位筛选、装备分类、复制反馈…）不在这里，由模块组件自己持有 ——
+ * 否则这个文件又要变成"所有状态的寄存处"。
+ */
 export function AtlasShell({ initialSearchParams }: { initialSearchParams: string }) {
-  const [initial] = useState(() => readInitialState(initialSearchParams));
-  const [data, setData] = useState<LolData | null>(null);
-  const [error, setError] = useState("");
+  const [initial] = useState(() => readAtlasState(initialSearchParams));
+  const { data, error, loading } = useLolData();
   const [tab, setTab] = useState(initial.tab);
   const [query, setQuery] = useState(initial.query);
-  // One selection per module: switching tabs used to carry the previous id over,
-  // which made the new module look up a record that cannot exist in it.
-  const [selectedByTab, setSelectedByTab] = useState<Record<string, string>>(() => ({ [initial.tab]: initial.id }));
-  const [championRole, setChampionRole] = useState<string | null>(null);
+  // 每个模块各记一份选中项：四个模块共用一份时，切过去会带着上一个模块的 id，
+  // 而新模块里不可能存在这个 id。
+  const [selectedByTab, setSelectedByTab] = useState<Record<string, string>>(
+    () => ({ [initial.tab]: initial.selectedId }),
+  );
   const [builderItemIds, setBuilderItemIds] = useState<string[]>(initial.itemIds);
   const searchRef = useRef<HTMLInputElement>(null);
-  // Last (tab, selection) pair written to the address bar, so the effect below
-  // can tell a real navigation apart from a search keystroke.
+  // 上一次写进地址栏的 (模块, 选中项)，用来把"真导航"和"敲搜索词"区分开
   const lastNavigationRef = useRef<{ tab: string; selectedId: string } | null>(null);
   const selectedId = selectedByTab[tab] ?? "";
   const setSelectedId = (id: string) => setSelectedByTab((current) => ({ ...current, [tab]: id }));
-
-  useEffect(() => {
-    const controller = new AbortController();
-    loadLolData(controller.signal).then(setData).catch((reason: unknown) => {
-      if (reason instanceof DOMException && reason.name === "AbortError") return;
-      setError(reason instanceof Error ? reason.message : "数据加载失败");
-    });
-    return () => controller.abort();
-  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -68,14 +47,13 @@ export function AtlasShell({ initialSearchParams }: { initialSearchParams: strin
       }
     };
     const onPopState = () => {
-      const next = readInitialState(window.location.search);
+      const next = readAtlasState(window.location.search);
       setTab(next.tab);
       setQuery(next.query);
-      setSelectedByTab((current) => ({ ...current, [next.tab]: next.id }));
+      setSelectedByTab((current) => ({ ...current, [next.tab]: next.selectedId }));
       setBuilderItemIds(next.itemIds);
-      // Where the user landed is now "here" — the effect below must not treat it
-      // as a fresh navigation and push another entry on top of it.
-      lastNavigationRef.current = { tab: next.tab, selectedId: next.id };
+      // 用户落到的地方现在就是"这里"，下面的 effect 不该把它当成一次新导航再压一条
+      lastNavigationRef.current = { tab: next.tab, selectedId: next.selectedId };
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("popstate", onPopState);
@@ -96,42 +74,19 @@ export function AtlasShell({ initialSearchParams }: { initialSearchParams: strin
     );
   }, [data, query]);
 
-  const roleCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const champion of champions) {
-      for (const tag of champion.tags_zh ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    }
-    return counts;
-  }, [champions]);
-
-  const visibleChampions = useMemo(
-    () => (championRole
-      ? champions.filter((champion) => (champion.tags_zh ?? []).includes(championRole))
-      : champions),
-    [championRole, champions],
-  );
-
   const selected = useMemo(
-    () => visibleChampions.find((champion) => champion.key === selectedId) ?? visibleChampions[0] ?? null,
-    [selectedId, visibleChampions],
+    () => champions.find((champion) => champion.key === selectedId) ?? champions[0] ?? null,
+    [champions, selectedId],
   );
 
+  // 英雄模块的选中项会回落到当前可见的第一条，地址栏写的是回落之后的结果，
+  // 这样分享出去的链接打开就是同一屏。
   const visibleSelectedId = tab === "champions" && data ? (selected?.key ?? "") : selectedId;
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    params.set("v", "1");
-    if (tab !== "champions") params.set("tab", tab);
-    if (query) params.set("q", query);
-    if (visibleSelectedId && tab !== "builder") params.set("id", visibleSelectedId);
-    if (builderItemIds.length) params.set("b", builderItemIds.join(","));
-    const url = `?${params.toString()}`;
-
-    // Opening a module or picking another record is a navigation: it earns a
-    // history entry, so Back returns to the previous one. Search keystrokes and
-    // loadout edits only rewrite the current entry — otherwise typing a name
-    // would bury the previous page under a dozen entries. The rule itself lives
-    // in lib/url-history.mjs so it can be tested.
+    const url = writeAtlasState({ tab, query, selectedId: visibleSelectedId, itemIds: builderItemIds });
+    // 打开模块、换记录算导航（留下可后退的历史）；搜索输入、配装增删只重写当前这一条，
+    // 否则敲一个名字就会埋掉上一页。判定规则在 lib/atlas-url.mjs，有单测。
     const next = { tab, selectedId: visibleSelectedId };
     if (historyActionFor(lastNavigationRef.current, next) === "push") window.history.pushState(null, "", url);
     else window.history.replaceState(null, "", url);
@@ -141,7 +96,7 @@ export function AtlasShell({ initialSearchParams }: { initialSearchParams: strin
   useAtlasWebMcp({ tab, query, selectedId: visibleSelectedId, builderItemIds, setTab, setQuery, setSelectedId, setBuilderItemIds });
 
   const addBuilderItem = (id: string) => {
-    setBuilderItemIds((current) => current.length >= 6 ? current : [...current, id]);
+    setBuilderItemIds((current) => current.length >= MAX_LOADOUT_ITEMS ? current : [...current, id]);
   };
 
   return (
@@ -168,19 +123,11 @@ export function AtlasShell({ initialSearchParams }: { initialSearchParams: strin
       </header>
 
       <Tabs value={tab} onValueChange={setTab} orientation="vertical" className="atlas-body">
-        <aside className="atlas-nav">
-          <TabsList variant="line" className="atlas-nav-list">
-            {navItems.map(({ value, label, icon: Icon }) => (
-              <TabsTrigger key={value} value={value} className="atlas-nav-item"><Icon aria-hidden="true" /><span>{label}</span></TabsTrigger>
-            ))}
-          </TabsList>
-          <div className="archive-note"><History aria-hidden="true" /><span>数据快照</span><strong>{data?.meta.version ?? "—"}</strong></div>
-        </aside>
+        <AtlasNav dataVersion={data?.meta.version ?? null} />
 
         {tab === "champions" ? (
-          <ChampionWorkspace champions={visibleChampions} selected={selected} onSelect={setSelectedId}
-            championCount={champions.length} role={championRole} roleCounts={roleCounts} onRoleChange={setChampionRole}
-            loading={!data && !error} error={error} timeline={data?.timeline} />
+          <ChampionWorkspace champions={champions} selected={selected} onSelect={setSelectedId}
+            loading={loading} error={error} timeline={data?.timeline} />
         ) : tab === "items" ? (
           <ItemWorkspace items={data?.items ?? []} query={query} selectedId={selectedId} onSelect={setSelectedId} onAdd={addBuilderItem} />
         ) : tab === "runes" ? (
@@ -194,196 +141,5 @@ export function AtlasShell({ initialSearchParams }: { initialSearchParams: strin
         )}
       </Tabs>
     </main>
-  );
-}
-
-type AtlasTab = (typeof navItems)[number]["value"];
-
-interface WebMcpContext {
-  registerTool(tool: {
-    name: string;
-    title: string;
-    description: string;
-    inputSchema: object;
-    annotations: { readOnlyHint: boolean; untrustedContentHint: boolean };
-    execute(input: unknown): unknown;
-  }, options?: { signal?: AbortSignal }): void | Promise<void>;
-}
-
-function useAtlasWebMcp(state: {
-  tab: string;
-  query: string;
-  selectedId: string;
-  builderItemIds: string[];
-  setTab: (tab: string) => void;
-  setQuery: (query: string) => void;
-  setSelectedId: (id: string) => void;
-  setBuilderItemIds: (ids: string[]) => void;
-}) {
-  const latest = useRef(state);
-  // The tool handlers must see current values, so refresh on every render. A
-  // dependency array here would just be a new object literal each time.
-  useEffect(() => {
-    latest.current = state;
-  });
-
-  useEffect(() => {
-    const context = (document as Document & { modelContext?: WebMcpContext }).modelContext;
-    if (!context?.registerTool) return;
-    const lifecycle = new AbortController();
-    const register = (tool: Parameters<WebMcpContext["registerTool"]>[0]) => {
-      void Promise.resolve(context.registerTool(tool, { signal: lifecycle.signal })).catch(() => undefined);
-    };
-    register({
-      name: "read_atlas_state",
-      title: "读取图鉴状态",
-      description: "读取当前 LOL Atlas 页面、搜索词、选中记录和配装。",
-      inputSchema: { type: "object", properties: {}, additionalProperties: false },
-      annotations: { readOnlyHint: true, untrustedContentHint: false },
-      execute: () => ({
-        tab: latest.current.tab,
-        query: latest.current.query,
-        selectedId: latest.current.selectedId,
-        builderItemIds: latest.current.builderItemIds,
-      }),
-    });
-    register({
-      name: "navigate_atlas",
-      title: "打开图鉴记录",
-      description: "切换 LOL Atlas 模块，可选设置搜索词和记录 ID。",
-      inputSchema: {
-        type: "object",
-        properties: {
-          tab: { type: "string", enum: navItems.map((item) => item.value) },
-          query: { type: "string" },
-          selectedId: { type: "string" },
-        },
-        required: ["tab"],
-        additionalProperties: false,
-      },
-      annotations: { readOnlyHint: false, untrustedContentHint: false },
-      execute: (input) => {
-        if (!input || typeof input !== "object") throw new Error("Invalid atlas navigation input");
-        const value = input as { tab?: string; query?: string; selectedId?: string };
-        if (!navItems.some((item) => item.value === value.tab)) throw new Error("Unknown atlas tab");
-        latest.current.setTab(value.tab as AtlasTab);
-        if (typeof value.query === "string") latest.current.setQuery(value.query);
-        if (typeof value.selectedId === "string") latest.current.setSelectedId(value.selectedId);
-        return { tab: value.tab, query: value.query ?? latest.current.query, selectedId: value.selectedId ?? latest.current.selectedId };
-      },
-    });
-    register({
-      name: "set_atlas_loadout",
-      title: "设置配装",
-      description: "用最多六个装备 ID 替换当前 LOL Atlas 配装，并打开配装实验台。",
-      inputSchema: {
-        type: "object",
-        properties: { itemIds: { type: "array", maxItems: 6, items: { type: "string" } } },
-        required: ["itemIds"],
-        additionalProperties: false,
-      },
-      annotations: { readOnlyHint: false, untrustedContentHint: false },
-      execute: (input) => {
-        if (!input || typeof input !== "object" || !Array.isArray((input as { itemIds?: unknown }).itemIds)) {
-          throw new Error("itemIds must be an array");
-        }
-        const itemIds = (input as { itemIds: unknown[] }).itemIds;
-        if (itemIds.length > 6 || itemIds.some((id) => typeof id !== "string" || !id)) throw new Error("Invalid itemIds");
-        latest.current.setBuilderItemIds(itemIds as string[]);
-        latest.current.setTab("builder");
-        return { tab: "builder", itemIds };
-      },
-    });
-    return () => lifecycle.abort();
-  }, []);
-}
-
-const roleOrder = ["战士", "坦克", "法师", "刺客", "射手", "辅助"];
-
-function ChampionWorkspace({ champions, selected, onSelect, championCount, role, roleCounts, onRoleChange, loading, error, timeline }: {
-  champions: Champion[]; selected: Champion | null; onSelect: (id: string) => void; loading: boolean;
-  championCount: number; role: string | null; roleCounts: Map<string, number>;
-  onRoleChange: (role: string | null) => void;
-  error: string; timeline?: LolTimeline;
-}) {
-  const groupRefs = useRef(new Map<string, HTMLDivElement>());
-
-  // 按中文名的拼音首字母分组，做成字母索引
-  const groups = useMemo(() => {
-    const map = new Map<string, Champion[]>();
-    for (const champion of champions) {
-      const key = champion.initial ?? "#";
-      const bucket = map.get(key);
-      if (bucket) bucket.push(champion);
-      else map.set(key, [champion]);
-    }
-    return [...map.entries()].sort((left, right) => left[0].localeCompare(right[0]));
-  }, [champions]);
-
-  const jumpTo = (letter: string) => {
-    const node = groupRefs.current.get(letter);
-    if (node) node.scrollIntoView({ block: "start" });
-  };
-
-  return (
-    <div className="champion-workspace">
-      <section className="champion-index" aria-label="英雄列表">
-        <div className="panel-heading">
-          <div><span>CHAMPION INDEX</span><h2>英雄索引</h2></div>
-          <strong>{loading ? "—" : champions.length}</strong>
-        </div>
-        {!loading && !error ? (
-          <div className="role-strip" role="group" aria-label="按定位筛选">
-            <button type="button" className={role === null ? "role-chip active" : "role-chip"}
-              onClick={() => onRoleChange(null)}>全部<span>{championCount}</span></button>
-            {roleOrder.map((entry) => (
-              <button key={entry} type="button" className={role === entry ? "role-chip active" : "role-chip"}
-                onClick={() => onRoleChange(entry)}>{entry}<span>{roleCounts.get(entry) ?? 0}</span></button>
-            ))}
-          </div>
-        ) : null}
-        {!loading && !error && groups.length > 1 ? (
-          <div className="letter-rail" role="group" aria-label="按拼音首字母跳转">
-            {groups.map(([letter, bucket]) => (
-              <button key={letter} type="button" className="letter-chip"
-                title={`${letter} · ${bucket.length}`} onClick={() => jumpTo(letter)}>{letter}</button>
-            ))}
-          </div>
-        ) : null}
-        <ScrollArea className="champion-scroll">
-          {error ? <p className="state-message error">{error}</p> : null}
-          {loading ? <p className="state-message">正在装载图鉴数据…</p> : null}
-          {!loading && !error && champions.length === 0 ? <p className="state-message">没有找到匹配的英雄</p> : null}
-          <div className="champion-list">
-            {groups.map(([letter, bucket]) => (
-              <div key={letter} className="champion-group"
-                ref={(node) => {
-                  if (node) groupRefs.current.set(letter, node);
-                  else groupRefs.current.delete(letter);
-                }}>
-                <div className="champion-group-head"><span>{letter}</span><em>{bucket.length}</em></div>
-                {bucket.map((champion) => (
-                  <button type="button" key={champion.key}
-                    className={champion.key === selected?.key ? "champion-row active" : "champion-row"}
-                    onClick={() => onSelect(champion.key)}>
-                    <img src={champion.icon} alt="" loading="lazy" />
-                    <span>
-                      <strong>{champion.name}<em>{champion.name_en}</em></strong>
-                      <small>{champion.epithet}</small>
-                    </span>
-                    <ChevronRight aria-hidden="true" />
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </section>
-      <section className="champion-detail" aria-live="polite">
-        {/* Keyed by champion so per-champion state — including the record of art
-            that failed to load — never leaks from one hero to the next. */}
-        {selected ? <ChampionDetail key={selected.id} champion={selected} timeline={timeline} /> : null}
-      </section>
-    </div>
   );
 }

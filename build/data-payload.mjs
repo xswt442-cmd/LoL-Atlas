@@ -1,11 +1,10 @@
-// Build-time splitting of the published snapshot, kept out of the Vite plugin so
-// it can be unit-tested (see tests/build-payload.test.mjs).
+// 构建期拆分发布快照。刻意放在 Vite 插件之外，好让它能被单测
+// （见 tests/build-payload.test.mjs）。
 import { createHash } from "node:crypto";
 
 export const HASH_LENGTH = 8;
-// Deliberately *not* content-addressed: outside consumers (the shields.io patch
-// badge in both READMEs) need one URL that stays put. It holds only `meta`, so
-// it is a few hundred bytes and can carry a short max-age instead.
+// **故意不做内容寻址**：外部消费者（两份 README 里的 shields.io 版本徽章）需要一个固定
+// 不动的 URL。它只装 `meta`，所以只有几百字节，可以配一个很短的 max-age。
 export const META_FILENAME = "meta.json";
 export const WIKI_DIRECTORY = "wiki";
 

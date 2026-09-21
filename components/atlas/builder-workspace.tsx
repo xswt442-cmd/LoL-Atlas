@@ -3,14 +3,13 @@
 import { useEffect, useState } from "react";
 import { Check, Copy, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Item, itemStatFields } from "@/lib/lol-data";
+import { itemStatFields, type Item } from "@/lib/lol-types";
 
 export function BuilderWorkspace({ itemIds, items, onRemove, onClear }: {
   itemIds: string[]; items: Item[]; onRemove: (slot: number) => void; onClear: () => void;
 }) {
-  // Keep the position each occupant had in `itemIds`: unresolved ids (a link
-  // shared from an older patch) must not shift the slots, or removing one
-  // loadout entry would delete a different one.
+  // 保留每件装备在 `itemIds` 里的原始位置：解析不出的 id（别人从旧版本分享来的链接）
+  // 不能挤掉其它槽位，否则点一次"移除"删掉的会是另一件。
   const occupants = itemIds
     .map((id, slot) => ({ slot, item: items.find((item) => item.id === id) }))
     .filter((entry): entry is { slot: number; item: Item } => Boolean(entry.item));

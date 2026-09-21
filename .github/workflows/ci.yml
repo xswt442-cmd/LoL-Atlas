@@ -6,9 +6,8 @@ on:
 
 jobs:
   web:
-    # Windows keeps the type/lint/test signal — the project is developed there —
-    # without paying for a second full build. The bundle is only ever produced on
-    # Linux, which is also what Deploy publishes from.
+    # Windows 只保留类型/风格/测试这几路信号 —— 项目是在 Windows 上开发的 ——
+    # 但不再为一次没人发布的完整构建付费。产物只在 Linux 上生成，Deploy 也从那里发布。
     strategy:
       matrix:
         include:

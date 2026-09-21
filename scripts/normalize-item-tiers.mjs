@@ -20,10 +20,10 @@ async function exists(filename) {
 }
 
 /**
- * Default inputs: the working snapshot plus the release copy for the patch it
- * declares. Deriving the release directory from `meta.version` keeps this from
- * silently rewriting an already-published snapshot — and from missing the next
- * patch's directory — when the hardcoded version goes stale.
+ * 默认输入：工作快照，加上它所声明版本对应的发布副本。
+ *
+ * 发布目录从 `meta.version` 推导，是为了避免硬编码的版本号过期后出现两种事故：
+ * 静默改写已发布的快照，以及漏掉下一个 patch 的目录。
  */
 async function defaultTargets() {
   const data = JSON.parse(await readFile(PRIMARY_SOURCE, "utf8"));
@@ -38,9 +38,9 @@ const targets = explicit.length ? explicit : await defaultTargets();
 for (const value of targets) {
   const filename = path.resolve(value);
   if (!(await exists(filename))) {
-    // An explicitly named file is a mistake; a derived one just is not staged yet.
+    // 显式传进来的文件不存在是错误；推导出来的那个只是还没进仓库而已。
     if (explicit.length) throw new Error(`not found: ${value}`);
-    console.warn(`skipped ${path.relative(process.cwd(), filename)}: release copy not staged yet`);
+    console.warn(`已跳过 ${path.relative(process.cwd(), filename)}：发布副本尚未生成`);
     continue;
   }
   const original = await readFile(filename, "utf8");
@@ -53,14 +53,14 @@ for (const value of targets) {
       changed += 1;
     }
   }
-  // Rewriting an unchanged file would churn the diff and, worse, move its sha256
-  // out from under the `manifest.json` recorded for this release.
+  // 重写一份没有变化的文件会白白搅动 diff，更糟的是会让它的 sha256 与该版本
+  // `manifest.json` 里记录的值对不上。
   if (!changed) {
-    console.log(`${path.relative(process.cwd(), filename)}: already normalized.`);
+    console.log(`${path.relative(process.cwd(), filename)}: 已是目标分级，未改动。`);
     continue;
   }
-  // Match the source file's trailing newline so the rest of the bytes stay put.
+  // 沿用源文件的末尾换行，其余字节保持不变。
   const trailing = original.endsWith("\n") ? "\n" : "";
   await writeFile(filename, `${JSON.stringify(data)}${trailing}`);
-  console.log(`${path.relative(process.cwd(), filename)}: normalized ${changed} item tiers.`);
+  console.log(`${path.relative(process.cwd(), filename)}: 已归正 ${changed} 件装备的分级。`);
 }

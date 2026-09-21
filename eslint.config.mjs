@@ -5,19 +5,19 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
+  // 覆盖 eslint-config-next 的默认忽略列表。
   globalIgnores([
-    // Default ignores of eslint-config-next:
+    // 以下是 eslint-config-next 自带的默认忽略项：
     ".next/**",
     "out/**",
     "testplace/**",
     "next-env.d.ts",
   ]),
   {
-    files: ["components/ui/**/*.{ts,tsx}", "hooks/use-mobile.ts"],
+    files: ["components/ui/**/*.{ts,tsx}"],
     rules: {
-      // These files are vendored verbatim from shadcn@4.17.0. Keep the
-      // registry source intact while applying the stricter rules to Site code.
+      // 这些文件是从 shadcn@4.17.0 原样拷来的：保持与上游一致，把更严的规则
+      // 留给本项目自己写的代码。
       "@typescript-eslint/no-unused-vars": "off",
       "react-hooks/purity": "off",
       "react-hooks/set-state-in-effect": "off",
@@ -26,8 +26,8 @@ const eslintConfig = defineConfig([
   {
     files: ["components/atlas/**/*.tsx"],
     rules: {
-      // Atlas records use hundreds of versioned Riot/Tencent CDN icons. Native
-      // lazy images avoid proxying this catalog through a paid image optimizer.
+      // 图鉴里有几百张带版本号的 Riot / 腾讯 CDN 图标。用原生懒加载图片，
+      // 免得整个图鉴都要经过付费的图片优化代理。
       "@next/next/no-img-element": "off",
     },
   },

@@ -11,9 +11,8 @@ export default async function Home({ searchParams }: HomeProps) {
     if (typeof value === "string") params.set(key, value);
     else if (Array.isArray(value)) value.forEach((entry) => params.append(key, entry));
   }
-  // The site version is injected at build time (`__APP_VERSION__` in
-  // vite.config.ts) instead of importing package.json, which would drag the
-  // whole dependency list into the server bundle for one string. The game data
-  // version comes from `data.meta`.
+  // 站点版本在构建时注入（`__APP_VERSION__`，见 vite.config.ts），而不是 import
+  // package.json —— 后者会因为一个字符串把整份依赖清单拖进服务端产物。
+  // 游戏数据版本来自 `data.meta`。
   return <AtlasShell initialSearchParams={params.toString()} />;
 }

@@ -5,7 +5,7 @@ export function readExecutionProfile() {
   try {
     settings = JSON.parse(readFileSync(new URL("../.sites-runtime/execution-profile.json", import.meta.url), "utf8"));
   } catch (error) {
-    // Clean clones and remote builds have no checkout-local selection.
+    // 全新克隆与远端构建里没有本地选择，只能取默认档。
     if (error.code === "ENOENT") return "portable";
     throw error;
   }

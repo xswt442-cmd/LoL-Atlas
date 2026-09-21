@@ -20,16 +20,16 @@ export WRANGLER_WRITE_LOGS=false
 export WRANGLER_LOG_PATH="${runtime_root}/wrangler/logs"
 export MINIFLARE_REGISTRY_PATH="${runtime_root}/wrangler/registry"
 
-# The runtime may provide a global npm cache. Keep the image's read-only Sites
-# seed separate and make this project's writable cache authoritative.
+# 运行环境可能提供全局 npm 缓存。镜像里那份只读的 Sites 缓存要单独放，
+# 以本项目可写的缓存为准。
 unset NPM_CONFIG_CACHE npm_config_cache || true
 export npm_config_cache="${runtime_root}/npm-cache"
 export npm_config_audit=false
 export npm_config_fund=false
 export npm_config_update_notifier=false
 
-# The runtime already supplies the standard HTTP(S)_PROXY variables. Remove
-# npm-specific aliases so npm 11 does not reinterpret or warn about them.
+# 运行环境已经提供了标准的 HTTP(S)_PROXY 变量。这里清掉 npm 专用的那几个别名，
+# 免得 npm 11 重新解释它们或反复告警。
 unset \
   npm_config_proxy \
   npm_config_http_proxy \
