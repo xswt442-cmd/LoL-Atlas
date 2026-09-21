@@ -1,10 +1,13 @@
 name: Deploy
 
-# 发布 tag 才会真正发站点：v* 是应用版本，patch-* 是 League 数据版本，两者都会改变
-# 线上 Worker 提供的内容（站点读 public/data/lol.json）。推分支不会部署；
-# 想重发已有的 tag，用手动的 "Run workflow" 按钮。
+# 三种情况都会发站点：合并进 `main`（日常路径）、推 `v*`（应用版本）或 `patch-*`（数据版本）tag。
+# 前两者都会改变线上 Worker 提供的内容（站点读 public/data/lol.json）。tag 推送额外做两件事 ——
+# 校验 tag 与 package.json 的版本一致，以及产出带 Release 的 artifact。
+# 想重发一个已有版本，用手动的 "Run workflow" 按钮。
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
       - "patch-*"
@@ -60,7 +63,7 @@ jobs:
           if [[ -z "$CLOUDFLARE_API_TOKEN" ]]; then missing="$missing CLOUDFLARE_API_TOKEN"; fi
           if [[ -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then missing="$missing CLOUDFLARE_ACCOUNT_ID"; fi
           if [[ -n "$missing" ]]; then
-            echo "::error::Missing repository secret(s):$missing. See README.md section '开发与部署'."
+            echo "::error::缺少仓库 secret：$missing。见 README.md 的「部署」一节。"
             exit 1
           fi
       # `npm run ci` 已经产出 dist/，直接发布它，不要再用 `npm run deploy` 重建一遍。
