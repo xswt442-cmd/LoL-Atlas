@@ -37,10 +37,11 @@ npm run build   # 产出 dist/
 
 ## 部署
 
-推送 `v*`（应用版本）或 `patch-*`（数据版本）标签会触发 `Deploy` 工作流：校验标签 → 跑 `npm run ci`
-→ 上传 release artifact → `wrangler deploy` 发布到 Cloudflare Worker `lol-atlas`。artifact 先于发布
-产出，所以凭据缺失时仍留有可下载的构建。分支推送不会发布；重新发布已有版本，在 Actions 里手动
-运行 `Deploy`。
+合并到 `main` 会触发 `Deploy` 工作流：跑 `npm run ci` → `wrangler deploy` 发布到 Cloudflare Worker
+`lol-atlas`。推送 `v*`（应用版本）或 `patch-*`（数据版本）标签同样会发布，并额外做两件事：校验
+标签与 `package.json` 的版本一致（`tag:validate`），以及产出带 GitHub Release 的 artifact。
+artifact 先于发布产出，所以凭据缺失时仍留有可下载的构建。重新发布一个已有版本，在 Actions 里
+手动运行 `Deploy`。
 
 数据版本需要先把 `data/releases/<version>/` 落地并提交，`tag:validate` 会检查其中的 `manifest.json`：
 

@@ -37,11 +37,12 @@ npm run build   # Writes dist/
 
 ## Deployment
 
-Pushing a `v*` (application) or `patch-*` (data) tag triggers the `Deploy` workflow: validate the tag,
-run `npm run ci`, upload the release artifact, then publish to the Cloudflare Worker `lol-atlas` with
-`wrangler deploy`. The artifact is produced before publishing, so a missing credential still leaves a
-downloadable build behind. Branch pushes never deploy; to re-publish an existing release, run `Deploy`
-manually from the Actions tab.
+Merging to `main` triggers the `Deploy` workflow: run `npm run ci`, then publish to the Cloudflare
+Worker `lol-atlas` with `wrangler deploy`. Pushing a `v*` (application) or `patch-*` (data) tag also
+publishes and does two extra things: it validates that the tag matches the `package.json` version
+(`tag:validate`) and produces an artifact with a GitHub release. The artifact is produced before
+publishing, so a missing credential still leaves a downloadable build behind. To re-publish an
+existing release, run `Deploy` manually from the Actions tab.
 
 A data release needs its files staged under `data/releases/<version>/` and committed first —
 `tag:validate` checks the `manifest.json` inside it:
