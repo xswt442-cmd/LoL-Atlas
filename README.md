@@ -46,9 +46,13 @@ artifact 先于发布产出，所以凭据缺失时仍留有可下载的构建�
 数据版本需要先把 `data/releases/<version>/` 落地并提交，`tag:validate` 会检查其中的 `manifest.json`：
 
 ```bash
-npm run release:manifest   # 依据 public/data/lol.json 生成 manifest.json（记录 sha256）
+node scripts/enrich-champion-stats.mjs   # 从 CommunityDragon 补成长值与单位几何（可重复执行）
+npm run release:manifest                 # 依据 public/data/lol.json 生成 manifest.json（记录 sha256）
 git add data/releases/<version> public/data/lol.json
 ```
+
+`enrich-champion-stats.mjs` 不能跳过：ddragon 在当前版本把全部英雄的攻击力成长写成 0，直接用它发版
+会得到一组全为 0 的成长值（`data:validate` 会拦下）。
 
 工作流需要 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID` 两个 repository secret。
 

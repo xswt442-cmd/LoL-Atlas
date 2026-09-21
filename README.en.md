@@ -48,9 +48,13 @@ A data release needs its files staged under `data/releases/<version>/` and commi
 `tag:validate` checks the `manifest.json` inside it:
 
 ```bash
-npm run release:manifest   # Writes manifest.json (with sha256) from public/data/lol.json
+node scripts/enrich-champion-stats.mjs   # Fill growth values and unit geometry from CommunityDragon
+npm run release:manifest                 # Write manifest.json (with sha256) from public/data/lol.json
 git add data/releases/<version> public/data/lol.json
 ```
+
+`enrich-champion-stats.mjs` is not optional: ddragon currently reports an attack damage growth of 0 for
+every champion, so releasing straight from it ships a roster of zeros (`data:validate` rejects it).
 
 The workflow needs two repository secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
