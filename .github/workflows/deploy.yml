@@ -1,9 +1,8 @@
 name: Deploy
 
-# Release tags publish the site: v* is an app release, patch-* is a League data
-# release, and both change what the deployed Worker serves (the site reads
-# public/data/lol.json). Branch pushes never deploy; re-publish an existing
-# release with the manual "Run workflow" button.
+# 发布 tag 才会真正发站点：v* 是应用版本，patch-* 是 League 数据版本，两者都会改变
+# 线上 Worker 提供的内容（站点读 public/data/lol.json）。推分支不会部署；
+# 想重发已有的 tag，用手动的 "Run workflow" 按钮。
 on:
   push:
     tags:
@@ -11,13 +10,12 @@ on:
       - "patch-*"
   workflow_dispatch:
 
-# The release-creation step needs `contents: write`; everything else stays
-# read-only in spirit (the token is not used for anything else).
+# 建 Release 那一步需要 `contents: write`；除此之外这个 token 不作他用，
+# 所以其余环节实质上仍只读。
 permissions:
   contents: write
 
-# Queue releases instead of cancelling them, so a half-finished publish is
-# never left behind.
+# 发布排队而不是互相取消，避免留下一次发到一半的部署。
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -42,10 +40,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         id: tag
         run: npm run tag:validate -- "$GITHUB_REF_NAME"
-      # Same gate as CI: typecheck, lint, data:validate, test, build.
+      # 与 CI 同一道门：typecheck、lint、data:validate、test、build。
       - run: npm run ci
-      # Keep the release artifact independent of publishing, so a missing
-      # Cloudflare secret still leaves a downloadable build behind.
+      # 把发布产物与推送到 Cloudflare 解耦：即使缺了 Cloudflare 的 secret，
+      # 也还留着一份能下载的构建。
       - if: steps.tag.outputs.kind == 'app'
         uses: actions/upload-artifact@v7
         with:
@@ -65,14 +63,12 @@ jobs:
             echo "::error::Missing repository secret(s):$missing. See README.md section '开发与部署'."
             exit 1
           fi
-      # `npm run ci` already produced dist/, so publish it rather than
-      # rebuilding through `npm run deploy`.
+      # `npm run ci` 已经产出 dist/，直接发布它，不要再用 `npm run deploy` 重建一遍。
       - name: Publish to Cloudflare Workers
         run: ./node_modules/.bin/wrangler deploy --config dist/server/wrangler.json
-      # v0.1.2 shipped without a GitHub release because nothing created one —
-      # the tag only published the site. Create it here, after the site is out,
-      # so a release never exists for a deploy that failed. Re-runs land on the
-      # `view` probe instead of failing on an existing release.
+      # v0.1.2 发出去时没有对应的 GitHub Release —— 当时没有任何环节去建它，tag 只发了站点。
+      # 现在在这里补上，且放在站点发布之后：失败的部署永远不会留下一个 Release。
+      # 重跑时先探测 Release 是否存在，而不是因为已存在就报错。
       - name: Create the GitHub release
         if: steps.tag.outputs.kind == 'app'
         env:

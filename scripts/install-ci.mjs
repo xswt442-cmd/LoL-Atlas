@@ -25,7 +25,7 @@ if (readExecutionProfile() === "managed-linux") {
   process.exit(result.status ?? 1);
 }
 
-// Invoke npm's JavaScript entrypoint, avoiding platform-specific shell shims.
+// 直接调用 npm 的 JavaScript 入口，绕开各平台自己的 shell 包装脚本。
 const installed = spawnSync(
   process.execPath,
   [
@@ -46,6 +46,6 @@ try {
     process.platform === "win32" ? constants.F_OK : constants.X_OK,
   );
 } catch {
-  console.error("npm ci exited successfully but the local vinext executable is unavailable.");
+  console.error("npm ci 成功退出，但本地缺少 vinext 可执行文件。");
   process.exitCode = 69;
 }

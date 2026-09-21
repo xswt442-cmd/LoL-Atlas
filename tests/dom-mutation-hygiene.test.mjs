@@ -13,7 +13,8 @@ import assert from "node:assert/strict";
  * 有 73 张是缺原画的炫彩条目，于是连着删 73 次……切英雄时必崩。
  * 正确做法是用状态标记失败、交给 React 自己卸载。
  *
- * 这里把这条约定固化下来：`components/` 与 `app/` 下不允许出现命令式节点删除。
+ * 这条约定现在固化在测试里：`components/` 与 `app/` 下不允许出现命令式节点删除。
+ * 需要记账"哪张图加载失败"时，用 `hooks/use-broken-art.ts`。
  */
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -34,7 +35,7 @@ async function collect(dir) {
   return files;
 }
 
-test("components never remove React-managed DOM nodes imperatively", async () => {
+test("组件层不允许命令式删除 React 管理的 DOM 节点", async () => {
   const offenders = [];
   for (const dir of SCAN_DIRS) {
     for (const file of await collect(path.join(root, dir))) {

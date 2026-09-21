@@ -7,18 +7,18 @@ import { comparePatchVersions, latestPatchVersion } from "../scripts/lib/patch-v
 import { validateData, validateDataFile } from "../scripts/validate-data.mjs";
 import { classifyTag } from "../scripts/validate-tag.mjs";
 
-test("patch versions are ordered numerically", () => {
+test("版本号按数值排序，而不是按字符串", () => {
   assert.ok(comparePatchVersions("16.18.1", "16.9.1") > 0);
   assert.equal(latestPatchVersion(["16.9.1", "16.18.1", "15.24.2"]), "16.18.1");
 });
 
-test("application and data tags use separate namespaces", () => {
+test("应用 tag 与数据 tag 用两套命名空间", () => {
   assert.deepEqual(classifyTag("v0.1.0", "0.1.0", "16.18.1"), { kind: "app", version: "0.1.0" });
   assert.deepEqual(classifyTag("patch-16.18.1", "0.1.0", "16.18.1"), { kind: "patch", version: "16.18.1" });
   assert.throws(() => classifyTag("v16.18.1", "0.1.0", "16.18.1"));
 });
 
-test("published data satisfies the atlas contract", async () => {
+test("已发布数据满足图鉴的数据契约", async () => {
   const publicUrl = new URL("../public/data/lol.json", import.meta.url);
   const { data, errors } = await validateDataFile(publicUrl);
   assert.deepEqual(errors, []);
@@ -35,19 +35,19 @@ test("published data satisfies the atlas contract", async () => {
   }
 });
 
-test("wiki source covers the roster and carries per-ability detail", async () => {
+test("原案副源覆盖全量英雄，且每个技能都有细节", async () => {
   const { data, errors } = await validateDataFile(new URL("../public/data/lol.json", import.meta.url));
   assert.deepEqual(errors, []);
   const wiki = data.wiki ?? {};
   assert.equal(Object.keys(wiki).length, data.champions.length);
   const ability = wiki.Ahri?.abilities.find((entry) => entry.slot === "Q");
-  assert.ok(ability, "sample ability must exist in the wiki source");
-  assert.ok(Object.keys(ability.stats).length > 0, "wiki ability must carry a stats grid");
-  assert.ok(Object.keys(ability.attrs).length > 0, "wiki ability must carry mechanic attributes");
-  assert.ok(ability.notes.length > 0, "wiki ability must carry notes");
+  assert.ok(ability, "样本科技能必须存在于原案副源里");
+  assert.ok(Object.keys(ability.stats).length > 0, "原案技能必须带数值网格");
+  assert.ok(Object.keys(ability.attrs).length > 0, "原案技能必须带机制属性");
+  assert.ok(ability.notes.length > 0, "原案技能必须带机制备注");
 });
 
-test("detail sources reject shapes that would crash the renderer", async () => {
+test("会让渲染崩掉的形状会被校验拦下", async () => {
   const { data } = await validateDataFile(new URL("../public/data/lol.json", import.meta.url));
 
   const badWiki = structuredClone(data);

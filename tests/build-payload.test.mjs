@@ -19,7 +19,7 @@ const dataset = {
   },
 };
 
-test("the browser payload drops wiki and keeps everything else", () => {
+test("浏览器载荷剥掉 wiki，其余字段一个不少", () => {
   const payloads = buildDataPayloads(dataset);
   const main = JSON.parse(payloads.main);
 
@@ -29,7 +29,7 @@ test("the browser payload drops wiki and keeps everything else", () => {
   assert.deepEqual(main.champions, dataset.champions);
 });
 
-test("the hash addresses the bytes the browser actually receives", () => {
+test("hash 指向浏览器实际收到的那串字节", () => {
   const payloads = buildDataPayloads(dataset);
   const expected = createHash("sha256").update(payloads.main).digest("hex").slice(0, HASH_LENGTH);
 
@@ -38,29 +38,29 @@ test("the hash addresses the bytes the browser actually receives", () => {
   assert.equal(payloads.mainFilename, `lol.${payloads.hash}.json`);
 });
 
-test("shards are named by numeric champion key, so ids never reach the URL", () => {
+test("分片按英雄数字 key 命名，id 永远进不了 URL", () => {
   const payloads = buildDataPayloads(dataset);
 
-  // `Kha'Zix` would need percent-encoding as a path segment.
+  // `Kha'Zix` 作为路径段需要百分号转义，所以分片不能这么命名。
   assert.deepEqual([...payloads.shards.keys()].sort(), ["121.json", "127.json"]);
   assert.equal(JSON.parse(payloads.shards.get("127.json")).name_zh, "丽桑卓");
 });
 
-test("a wiki entry with no matching champion is dropped", () => {
+test("没有对应英雄的原案条目被丢弃", () => {
   const payloads = buildDataPayloads(dataset);
 
-  // Three entries in, two files out — `Nobody` has no champion to render on.
+  // 进来三条，出去两个文件 —— `Nobody` 没有对应英雄，无处可渲染。
   assert.equal(Object.keys(dataset.wiki).length, 3);
   assert.equal(payloads.shards.size, 2);
 });
 
-test("meta.json carries only the meta block", () => {
+test("meta.json 只装 meta 块", () => {
   const payloads = buildDataPayloads(dataset);
 
   assert.deepEqual(JSON.parse(payloads.meta), dataset.meta);
 });
 
-test("the input dataset is left untouched", () => {
+test("输入数据不被改写", () => {
   const before = JSON.stringify(dataset);
   buildDataPayloads(dataset);
 
@@ -68,12 +68,12 @@ test("the input dataset is left untouched", () => {
   assert.equal("wiki" in dataset, true);
 });
 
-test("the published snapshot splits without losing wiki entries", async () => {
+test("已发布快照拆分后不丢任何原案条目", async () => {
   const source = await readFile(new URL("../public/data/lol.json", import.meta.url), "utf8");
   const published = JSON.parse(source);
   const payloads = buildDataPayloads(published);
 
-  // Every wiki entry maps to a champion, so no shard may be silently dropped.
+  // 每条原案都能对上英雄，所以不允许有任何分片被静默丢弃。
   assert.equal(payloads.shards.size, Object.keys(published.wiki).length);
   assert.equal("wiki" in JSON.parse(payloads.main), false);
   assert.deepEqual(JSON.parse(payloads.meta), published.meta);
