@@ -28,6 +28,9 @@ export function ChampionWorkspace({ champions, selected, onSelect, loading, erro
   timeline?: LolTimeline;
 }) {
   const [role, setRole] = useState<string | null>(null);
+  // 等级放在这里而不是详情组件里：详情按英雄加了 key，状态放那儿会在切英雄时被重置，
+  // 而"我想看 11 级的数据"是跨英雄的浏览意图。
+  const [level, setLevel] = useState(1);
   const groupRefs = useRef(new Map<string, HTMLDivElement>());
 
   const roleCounts = useMemo(() => {
@@ -123,7 +126,9 @@ export function ChampionWorkspace({ champions, selected, onSelect, loading, erro
       </section>
       <section className="champion-detail" aria-live="polite">
         {/* 按英雄加 key：每个英雄的局部状态（含"哪张图加载失败"的记账）不会串到下一个英雄 */}
-        {shown ? <ChampionDetail key={shown.id} champion={shown} timeline={timeline} /> : null}
+        {shown ? (
+          <ChampionDetail key={shown.id} champion={shown} timeline={timeline} level={level} onLevelChange={setLevel} />
+        ) : null}
       </section>
     </div>
   );

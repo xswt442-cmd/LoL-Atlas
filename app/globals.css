@@ -249,8 +249,35 @@ button, input { font: inherit; }
 .champion-row strong em { margin-left: .45rem; color: #5d7a81; font: .68rem var(--font-mono); font-style: normal; }
 
 /* ---- 属性表 + 玩法雷达 并排 ---- */
-.champion-overview { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.6rem; align-items: center; margin-top: 1.5rem; }
-.champion-overview .stat-grid { margin: 0; }
+.champion-overview { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.6rem; align-items: start; margin-top: 1.5rem; }
+
+/* ---- 基础数值面板：等级滑块 + 各级数值 ---- */
+.stat-panel { min-width: 0; }
+.level-control {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 1rem;
+  padding: .5rem .8rem; border: 1px solid var(--border); background: rgba(11, 31, 39, .52);
+}
+.level-control label { display: flex; align-items: baseline; gap: .4rem; }
+.level-control label span { color: #65828a; font: .66rem var(--font-mono); letter-spacing: .14em; }
+.level-control label strong { color: #d6ab54; font: 1.05rem var(--font-mono); }
+.level-control input[type="range"] { width: 100%; accent-color: #67d7c5; }
+.level-ticks { display: flex; gap: .5rem; color: #5d7a81; font: .66rem var(--font-mono); }
+.stat-table { width: 100%; margin-top: .6rem; border-collapse: collapse; }
+.stat-table th, .stat-table td { padding: .45rem .6rem; border-bottom: 1px solid var(--border); text-align: right; }
+.stat-table thead th { color: #65828a; font: .66rem var(--font-mono); letter-spacing: .12em; }
+.stat-table thead th.is-current { color: #67d7c5; }
+.stat-table tbody th { text-align: left; color: #b6c8c8; font-weight: 400; font-size: .82rem; }
+.stat-table tbody td { color: #ddebea; font: .82rem var(--font-mono); }
+.stat-table .stat-growth { color: #7d979c; }
+.stat-table .stat-max { color: #6d898f; }
+.stat-table .stat-current { color: #67d7c5; font-weight: 700; }
+.stat-note { display: block; margin-top: .1rem; color: #5d7a81; font: .62rem var(--font-mono); font-style: normal; }
+.stat-extras { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .8rem 1.4rem; margin-top: 1rem; }
+.stat-extras-title { color: #65828a; font: .66rem var(--font-mono); letter-spacing: .14em; }
+.stat-extras ul { margin: .35rem 0 0; padding: 0; list-style: none; }
+.stat-extras li { display: flex; justify-content: space-between; gap: .8rem; padding: .22rem 0; border-bottom: 1px dashed rgba(30, 58, 69, .7); font-size: .76rem; }
+.stat-extras li span { color: #8aa3a8; }
+.stat-extras li strong { color: #ddebea; font: .78rem var(--font-mono); }
 .radar { margin: 0; display: grid; justify-items: center; gap: .35rem; }
 .radar svg { width: 11.5rem; height: auto; }
 .radar-ring { fill: none; stroke: #1e3a45; stroke-width: .8; }
