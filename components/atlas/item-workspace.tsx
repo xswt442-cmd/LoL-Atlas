@@ -6,7 +6,7 @@ import { ChevronRight, PackagePlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Item, itemStatFields } from "@/lib/lol-data";
+import { itemStatFields, type Item } from "@/lib/lol-types";
 
 export function ItemWorkspace({ items, query, selectedId, onSelect, onAdd }: {
   items: Item[];

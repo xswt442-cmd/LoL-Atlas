@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, Copy, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Item, itemStatFields } from "@/lib/lol-data";
+import { itemStatFields, type Item } from "@/lib/lol-types";
 
 export function BuilderWorkspace({ itemIds, items, onRemove, onClear }: {
   itemIds: string[]; items: Item[]; onRemove: (slot: number) => void; onClear: () => void;
