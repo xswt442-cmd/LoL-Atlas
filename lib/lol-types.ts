@@ -58,14 +58,42 @@ export interface Champion {
   roles?: string;
   playstyle?: Playstyle;
   skins?: ChampionSkin[];
+  /**
+   * 1 级基础值 + 每级成长值。成长**不是线性**的，累计倍率见
+   * `lib/champion-stats.mjs` 的 `growthFactor`（18 级 17、20 级 19.665）。
+   *
+   * 攻速成长（`attackspeed_per_level`）的单位是百分比，且要乘 `attackspeed_ratio` 而不是
+   * 基础攻速；`attackspeed_ratio` 为 0 表示该英雄不走这套缩放（烬）。
+   */
   hp: number;
   hp_per_level: number;
+  mp: number;
+  mp_per_level: number;
+  hpregen: number;
+  hpregen_per_level: number;
+  mpregen: number;
+  mpregen_per_level: number;
   armor: number;
+  armor_per_level: number;
   spellblock: number;
+  spellblock_per_level: number;
   attackdamage: number;
+  /** 来自 CommunityDragon —— ddragon 在当前版本对全部英雄都把这个字段写成 0 */
+  attackdamage_per_level: number;
   attackspeed: number;
+  attackspeed_per_level: number;
+  attackspeed_ratio: number;
+  /** 暴击伤害倍率（2 = 200%）。艾希是 1：她的暴击不加伤害，改成强化减速 */
+  crit_damage: number;
+  crit: number;
+  crit_per_level: number;
   attackrange: number;
   movespeed: number;
+  /** 单位几何，来自 CommunityDragon。`acquisition_range` 有 12 个英雄没有该字段 */
+  pathing_radius?: number;
+  selection_radius?: number;
+  selection_height?: number;
+  acquisition_range?: number;
   icon: string;
   spells: Spell[];
 }

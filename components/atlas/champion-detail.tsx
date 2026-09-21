@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChampionStatPanel } from "@/components/atlas/champion-stat-panel";
 import { PatchHistory } from "@/components/atlas/champion-patch-history";
 import { PlaystyleRadar } from "@/components/atlas/champion-playstyle-radar";
 import { WikiSpellStack } from "@/components/atlas/champion-wiki-stack";
@@ -12,17 +13,14 @@ import { useChampionWiki } from "@/hooks/use-champion-wiki";
 import { championLoadingUrl, championSplashUrl } from "@/lib/ddragon";
 import type { Champion, LolTimeline } from "@/lib/lol-types";
 
-const statRows: Array<[keyof Champion, string]> = [
-  ["hp", "生命"], ["attackdamage", "攻击力"], ["armor", "护甲"],
-  ["spellblock", "魔抗"], ["attackspeed", "攻速"], ["attackrange", "射程"], ["movespeed", "移速"],
-];
-
 /**
  * 英雄详情：中文 CDN 数据为主，可切到 lolwiki 英文原案。
  *
  * 数据来源的切换只影响简介与技能两处；数值属性、版本改动、皮肤始终来自 CDN 主源。
  */
-export function ChampionDetail({ champion, timeline }: { champion: Champion; timeline?: LolTimeline }) {
+export function ChampionDetail({ champion, timeline, level, onLevelChange }: {
+  champion: Champion; timeline?: LolTimeline; level: number; onLevelChange: (level: number) => void;
+}) {
   const [showWiki, setShowWiki] = useState(false);
   const { wiki, loading: wikiLoading, failed: wikiFailed } = useChampionWiki(champion.key, showWiki);
   const { isBroken, markBroken } = useBrokenArt();
@@ -72,11 +70,7 @@ export function ChampionDetail({ champion, timeline }: { champion: Champion; tim
         ) : null}
 
         <div className="champion-overview">
-          <div className="stat-grid">
-            {statRows.map(([key, label]) => (
-              <div key={key}><span>{label}</span><strong>{String(champion[key])}</strong></div>
-            ))}
-          </div>
+          <ChampionStatPanel champion={champion} level={level} onLevelChange={onLevelChange} />
           {champion.playstyle ? <PlaystyleRadar playstyle={champion.playstyle} /> : null}
         </div>
 

@@ -104,6 +104,33 @@ export function validateData(data) {
       `champion ${champion.id} still carries the old boolean chromas field`, errors);
   }
 
+  // 基础数值与成长值：详情页的等级滑块直接读这些字段，缺一个就少一行。
+  // **重点拦 AD 成长**：ddragon 在当前版本对全部英雄都把它写成 0，
+  // 而我们的数据来自 CommunityDragon（见 scripts/enrich-champion-stats.mjs）。
+  // 曾经全量为 0 却一路发布上线，所以这里按"几乎全量必须有值"来断言 ——
+  // 只有机制上不靠等级涨 AD 的英雄（赛娜，靠灵魂）可以例外。
+  const adGrowthMissing = champions.filter((champion) => !(champion.attackdamage_per_level > 0));
+  assert(adGrowthMissing.length <= 2,
+    `attack damage growth must be present for the roster, missing: ${adGrowthMissing.map((champion) => champion.id).join(", ")}`, errors);
+  for (const champion of champions) {
+    for (const field of ["hp_per_level", "armor_per_level", "spellblock_per_level", "attackspeed_per_level"]) {
+      assert(typeof champion[field] === "number" && champion[field] >= 0,
+        `champion ${champion.id} has an invalid ${field}`, errors);
+    }
+    for (const field of ["attackspeed_ratio", "crit_damage"]) {
+      assert(typeof champion[field] === "number" && champion[field] >= 0,
+        `champion ${champion.id} is missing ${field} (rerun scripts/enrich-champion-stats.mjs)`, errors);
+    }
+    // 单位几何：CD 里有些英雄没有 acquisition_range，缺失是允许的，但给了就必须是正数
+    for (const field of ["pathing_radius", "selection_radius", "selection_height"]) {
+      assert(typeof champion[field] === "number" && champion[field] >= 0,
+        `champion ${champion.id} is missing ${field} (rerun scripts/enrich-champion-stats.mjs)`, errors);
+    }
+    if ("acquisition_range" in champion) {
+      assert(champion.acquisition_range > 0, `champion ${champion.id} has a non-positive acquisition_range`, errors);
+    }
+  }
+
   const items = data?.items ?? [];
   const itemIds = new Set(items.map((item) => item.id));
   assert(duplicates(items.map((item) => item.id)).length === 0, "item ids must be unique", errors);
