@@ -11,8 +11,10 @@ on:
       - "patch-*"
   workflow_dispatch:
 
+# The release-creation step needs `contents: write`; everything else stays
+# read-only in spirit (the token is not used for anything else).
 permissions:
-  contents: read
+  contents: write
 
 # Queue releases instead of cancelling them, so a half-finished publish is
 # never left behind.
@@ -67,3 +69,19 @@ jobs:
       # rebuilding through `npm run deploy`.
       - name: Publish to Cloudflare Workers
         run: ./node_modules/.bin/wrangler deploy --config dist/server/wrangler.json
+      # v0.1.2 shipped without a GitHub release because nothing created one —
+      # the tag only published the site. Create it here, after the site is out,
+      # so a release never exists for a deploy that failed. Re-runs land on the
+      # `view` probe instead of failing on an existing release.
+      - name: Create the GitHub release
+        if: steps.tag.outputs.kind == 'app'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; skipping."
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "LOL Atlas $GITHUB_REF_NAME" \
+              --generate-notes
+          fi
