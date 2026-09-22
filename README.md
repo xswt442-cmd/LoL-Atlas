@@ -47,12 +47,18 @@ artifact 先于发布产出，所以凭据缺失时仍留有可下载的构建�
 
 ```bash
 node scripts/enrich-champion-stats.mjs   # 从 CommunityDragon 补成长值与单位几何（可重复执行）
+python -m pip install -e pipeline        # 只需要一次，提供 lol-atlas-data 命令
+lol-atlas-data sync-db data/releases/<version>/lol.db public/data/lol.json
 npm run release:manifest                 # 依据 public/data/lol.json 生成 manifest.json（记录 sha256）
 git add data/releases/<version> public/data/lol.json
 ```
 
 `enrich-champion-stats.mjs` 不能跳过：ddragon 在当前版本把全部英雄的攻击力成长写成 0，直接用它发版
 会得到一组全为 0 的成长值（`data:validate` 会拦下）。
+
+`sync-db` 把补丁脚本新增的字段同步进发布用的 sqlite 库，**不做全量重建** —— 库里有快照不携带的列
+（技能各级冷却 / 消耗 / 射程），重建会静默丢掉它们。它幂等：没有变化就不写文件。
+`lol-atlas-data verify-db <db> <snapshot>` 可只核对不写入，CI 的 pipeline 任务也跑同一套断言。
 
 工作流需要 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID` 两个 repository secret。
 

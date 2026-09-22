@@ -49,12 +49,20 @@ A data release needs its files staged under `data/releases/<version>/` and commi
 
 ```bash
 node scripts/enrich-champion-stats.mjs   # Fill growth values and unit geometry from CommunityDragon
+python -m pip install -e pipeline        # Once, to get the lol-atlas-data command
+lol-atlas-data sync-db data/releases/<version>/lol.db public/data/lol.json
 npm run release:manifest                 # Write manifest.json (with sha256) from public/data/lol.json
 git add data/releases/<version> public/data/lol.json
 ```
 
 `enrich-champion-stats.mjs` is not optional: ddragon currently reports an attack damage growth of 0 for
 every champion, so releasing straight from it ships a roster of zeros (`data:validate` rejects it).
+
+`sync-db` carries the fields those patch scripts add into the published sqlite mirror. It deliberately
+does *not* rebuild the database: the mirror holds columns the snapshot does not carry (per-level
+cooldowns, costs and ranges), and a rebuild would silently drop them. It is idempotent — nothing is
+written when nothing changed. `lol-atlas-data verify-db <db> <snapshot>` checks without writing, and
+the CI pipeline job runs the same assertions.
 
 The workflow needs two repository secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
