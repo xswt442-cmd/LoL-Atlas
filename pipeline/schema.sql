@@ -1,5 +1,12 @@
 -- LOL 静态图鉴库 · 中文
--- 由 scripts/build_db.py 执行。版本信息在 meta 表。
+-- 由造库脚本执行（历史上是 scripts/build_db.py，不在本仓库）。版本信息在 meta 表。
+--
+-- ⚠ 这个库不是「lol.json 的关系型镜像」，两边各有对方没有的东西：
+--   · 库独有的：技能各级冷却 / 消耗 / 射程（cooldown_levels / cost_levels / range_levels）
+--     与技能图（image），来自造库那一步的原始抓取数据，快照里没有。
+--   · 快照独有的：补丁脚本（scripts/enrich-champion-*.mjs）后加的字段。
+-- 所以补丁字段用 `lol-atlas-data sync-db <db> public/data/lol.json` **增量同步**进来，
+-- 而不是从快照重建整个库（重建会静默丢掉上面那批列）。
 
 PRAGMA journal_mode = WAL;
 
@@ -42,7 +49,9 @@ CREATE TABLE champions (
     name                   TEXT NOT NULL,      -- 亚托克斯
     epithet                TEXT,               -- 暗裔剑魔
     name_en                TEXT,               -- Aatrox
+    initial                TEXT,               -- 中文名拼音首字母，供字母索引分组
     blurb                  TEXT,
+    blurb_en               TEXT,               -- 英文简介（ddragon en_US），中文 blurb 的对照
     partype                TEXT,               -- 资源类型：法力/怒气/鲜血魔井...
     tags                   TEXT,               -- JSON ["Fighter"]，英文原始
     tags_zh                TEXT,               -- JSON ["战士"]，便于中文查询
@@ -67,6 +76,14 @@ CREATE TABLE champions (
     mpregen                REAL,  mpregen_per_level            REAL,
     crit                   REAL,  crit_per_level               REAL,
     movespeed              REAL,
+    -- 以下字段来自 CommunityDragon（ddragon 没有或恒为 0）：
+    -- attackdamage_per_level 在 ddragon 里对全部英雄都是 0，必须由补数据脚本写入
+    attackspeed_ratio      REAL,               -- 额外攻速的缩放基准；0 = 不走常规缩放（烬）
+    crit_damage            REAL,               -- 暴击伤害倍率，2 = 200%；艾希是 1
+    pathing_radius         REAL,               -- 单位几何：碰撞半径
+    selection_radius       REAL,               -- 选中半径
+    selection_height       REAL,               -- 选中高度
+    acquisition_range      REAL,               -- 获取范围；12 个英雄没有该字段，留 NULL
     icon                   TEXT
 );
 
