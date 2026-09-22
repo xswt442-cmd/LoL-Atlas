@@ -115,8 +115,9 @@ CREATE TABLE champion_skins (
     skin_id      TEXT,
     num          INTEGER,
     name         TEXT,
-    chromas      INTEGER DEFAULT 0
-);
+    chromas      INTEGER DEFAULT 0,   -- ⚠ 布尔标志：这个皮肤**有没有**炫彩（ddragon chromas 字段）
+    chroma_count INTEGER              -- 炫彩**数量**，来自快照（ddragon parentSkin 关系，
+);                                   -- 与 CommunityDragon 逐条一致）。两者口径不同，别混用
 
 CREATE TABLE items (
     id               TEXT PRIMARY KEY,

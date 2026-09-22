@@ -102,7 +102,10 @@ class DbSyncTests(unittest.TestCase):
         report = sync_release_database(self.database, self.snapshot)
 
         self.assertTrue(report.wrote)
-        self.assertEqual(sorted(report.added_columns), sorted(NEW_COLUMNS))
+        self.assertEqual(
+            {column.split(".", 1)[1] for column in report.added_columns},
+            set(NEW_COLUMNS),
+        )
         self.assertEqual(report.updated_columns["attackdamage_per_level"], 1)
         self.assertTrue(report.clean, report.drift)
         with closing(sqlite3.connect(self.database)) as connection:
@@ -192,6 +195,66 @@ class DbSyncTests(unittest.TestCase):
                 "SELECT value FROM meta WHERE key = ?", (META_SNAPSHOT_KEY,)
             ).fetchone()[0]
         self.assertEqual(recorded, hashlib.sha256(self.snapshot.read_bytes()).hexdigest())
+
+    def test_fills_skin_chroma_counts_and_keeps_the_flag(self) -> None:
+        """`chroma_count` 是数量（与 CommunityDragon 一致）；`chromas` 是布尔，两者并存。
+
+        快照里"霸天剑魔"有 3 个炫彩，而旧库的 `chromas` 记的是 ddragon 的布尔标志（1）。
+        同步之后数量列应为 3，布尔列必须原样保留 —— 那是另一个口径，不是错误数据。
+        """
+        champion = self.champion()
+        champion["skins"] = [
+            {"num": 0, "name": "默认", "chroma_count": 0},
+            {"num": 2, "name": "霸天剑魔 亚托克斯", "chroma_count": 3},
+        ]
+        self.build_legacy_database([champion])
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.executemany(
+                "INSERT INTO champion_skins (champion_key, num, name, chromas) VALUES (?, ?, ?, ?)",
+                [
+                    (champion["key"], 0, "默认", 0),
+                    (champion["key"], 2, "霸天剑魔 亚托克斯", 1),
+                ],
+            )
+            connection.commit()
+        self.write_snapshot([champion])
+
+        report = sync_release_database(self.database, self.snapshot)
+
+        self.assertTrue(report.clean, report.drift)
+        self.assertEqual(report.updated_columns.get("chroma_count"), 2)
+        with closing(sqlite3.connect(self.database)) as connection:
+            chroma_count, chromas = connection.execute(
+                "SELECT chroma_count, chromas FROM champion_skins WHERE champion_key = ? AND num = 2",
+                (champion["key"],),
+            ).fetchone()
+        self.assertEqual(chroma_count, 3)
+        self.assertEqual(chromas, 1, "布尔标志是另一个口径，同步数量时不能动它")
+
+    def test_skins_only_in_the_database_are_left_alone(self) -> None:
+        """库比快照多的皮肤行（炫彩条目）不在同步范围，也不该被当成不一致。"""
+        champion = self.champion()
+        champion["skins"] = [{"num": 2, "name": "霸天剑魔 亚托克斯", "chroma_count": 3}]
+        self.build_legacy_database([champion])
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.executemany(
+                "INSERT INTO champion_skins (champion_key, num, name, chromas) VALUES (?, ?, ?, ?)",
+                [
+                    (champion["key"], 2, "霸天剑魔 亚托克斯", 1),
+                    (champion["key"], 4, "霸天剑魔 亚托克斯 暗色死神", 0),
+                ],
+            )
+            connection.commit()
+        self.write_snapshot([champion])
+
+        report = sync_release_database(self.database, self.snapshot)
+
+        self.assertTrue(report.clean, report.drift)
+        with closing(sqlite3.connect(self.database)) as connection:
+            name = connection.execute(
+                "SELECT name FROM champion_skins WHERE champion_key = ? AND num = 4", (champion["key"],)
+            ).fetchone()[0]
+        self.assertEqual(name, "霸天剑魔 亚托克斯 暗色死神")
 
     def test_published_release_database_matches_the_snapshot(self) -> None:
         """已发布的库必须与快照同步。
