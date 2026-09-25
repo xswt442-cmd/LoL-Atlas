@@ -31,6 +31,11 @@
 
 皮肤表的 `chromas` 布尔保持原样 —— 它是 ddragon 的标志（这个皮肤有没有炫彩，取值只有 0/1），
 和 `chroma_count` **不是同一个量**，两者并存，谁也不覆盖谁。
+
+## 基础数值列也在同步范围
+
+平衡补丁会改英雄的基础值与成长值（16.19 就动了 5 个英雄），这些列造库时就存在 ——
+把它们纳入同步与校验，库才能跟着快照升版本，而不是永远停在造库那天。
 """
 
 from __future__ import annotations
@@ -58,6 +63,21 @@ CHAMPION_COLUMNS: tuple[tuple[str, str], ...] = (
 # 皮肤：数量列，键是 (champion_key, num)。布尔 `chromas` 不在此列（口径不同，见模块说明）
 SKIN_COLUMNS: tuple[tuple[str, str], ...] = (
     ("chroma_count", "INTEGER"),
+)
+
+# 基础数值列：快照更新版本时这些值会随平衡补丁变动（如 16.19 的菲兹/德莱文），
+# 同样要进库 —— 否则库的基础数值永远停在造库那天的版本。
+CHAMPION_BASE_COLUMNS: tuple[str, ...] = (
+    "hp", "hp_per_level", "mp", "mp_per_level",
+    "armor", "armor_per_level", "spellblock", "spellblock_per_level",
+    "attackdamage", "attackspeed", "attackrange",
+    "hpregen", "hpregen_per_level", "mpregen", "mpregen_per_level",
+    "crit", "crit_per_level", "movespeed",
+)
+
+# 基础数值列：平衡补丁会改这些值，同步与校验都要覆盖（库造库时就有这些列，走 UPDATE 不走 ADD）
+ALL_CHAMPION_COLUMNS: tuple[tuple[str, str], ...] = CHAMPION_COLUMNS + tuple(
+    (column, "REAL") for column in CHAMPION_BASE_COLUMNS
 )
 
 META_SNAPSHOT_KEY = "snapshot_sha256"
@@ -115,12 +135,13 @@ def _check_versions(database: sqlite3.Connection, data: dict, database_path: Pat
 
 
 def _skin_expectations(data: dict) -> dict[tuple[str, int], dict[str, object]]:
-    """快照里每个皮肤应有的补丁字段，按 (champion_key, num) 索引。"""
+    """快照里每个皮肤应有的字段，按 (champion_key, num) 索引。name 供新行整行插入用。"""
     expected: dict[tuple[str, int], dict[str, object]] = {}
     for champion in data["champions"]:
         for skin in champion.get("skins", []):
             expected[(champion["key"], skin["num"])] = {
-                column: skin.get(column) for column, _ in SKIN_COLUMNS
+                "name": skin.get("name"),
+                **{column: skin.get(column) for column, _ in SKIN_COLUMNS},
             }
     return expected
 
@@ -133,9 +154,9 @@ def verify_release_database(database_path: Path, snapshot_path: Path) -> SyncRep
         _check_versions(database, data, database_path)
 
         # 英雄表
-        missing = _missing_columns(database, "champions", CHAMPION_COLUMNS)
+        missing = _missing_columns(database, "champions", ALL_CHAMPION_COLUMNS)
         report.added_columns.extend(f"champions.{column}" for column in missing)
-        existing = [column for column, _ in CHAMPION_COLUMNS if column not in missing]
+        existing = [column for column, _ in ALL_CHAMPION_COLUMNS if column not in missing]
         selected = ", ".join(existing) if existing else "key"
         stored = {
             row[0]: dict(zip(existing, row[1:]))
@@ -146,7 +167,7 @@ def verify_release_database(database_path: Path, snapshot_path: Path) -> SyncRep
             if row is None:
                 report.drift.append(f"库中缺少英雄 {champion['id']}（key={champion['key']}）")
                 continue
-            for column, _type in CHAMPION_COLUMNS:
+            for column, _type in ALL_CHAMPION_COLUMNS:
                 if column in missing:
                     if champion.get(column) is not None:
                         report.drift.append(f"{champion['id']}.{column}: 库缺列，快照为 {champion[column]!r}")
@@ -200,9 +221,9 @@ def sync_release_database(database_path: Path, snapshot_path: Path) -> SyncRepor
         _check_versions(database, data, database_path)
 
         # ---- 英雄表：先算出要改什么，再决定要不要写 ----
-        missing = _missing_columns(database, "champions", CHAMPION_COLUMNS)
+        missing = _missing_columns(database, "champions", ALL_CHAMPION_COLUMNS)
         added.extend(f"champions.{column}" for column in missing)
-        existing = [column for column, _ in CHAMPION_COLUMNS if column not in missing]
+        existing = [column for column, _ in ALL_CHAMPION_COLUMNS if column not in missing]
         selected = ", ".join(existing) if existing else "key"
         stored = {
             row[0]: dict(zip(existing, row[1:]))
@@ -210,7 +231,7 @@ def sync_release_database(database_path: Path, snapshot_path: Path) -> SyncRepor
         }
         for champion in data["champions"]:
             row = stored.get(champion["key"])
-            for column, _type in CHAMPION_COLUMNS:
+            for column, _type in ALL_CHAMPION_COLUMNS:
                 expected = champion.get(column)
                 if column in missing:
                     # 新列：只要快照有值就写（没有就留 NULL）
@@ -231,13 +252,21 @@ def sync_release_database(database_path: Path, snapshot_path: Path) -> SyncRepor
         }
         for key, expected in _skin_expectations(data).items():
             row = stored_skins.get(key)
+            if row is None:
+                # 新皮肤（如 16.19 的古神/魔女系列）：整行插入。chromas 布尔按
+                # ddragon 语义从数量推导（有炫彩即 1），快照里没有这个标志
+                pending.append((
+                    "champion_skins", key, "__insert__",
+                    (expected["name"], 1 if expected.get("chroma_count") else 0, expected.get("chroma_count")),
+                ))
+                continue
             for column, _type in SKIN_COLUMNS:
                 value = expected[column]
                 if column in skin_missing:
                     if value is not None:
                         pending.append(("champion_skins", key, column, value))
                     continue
-                if row is None or not _same(row[column], value):
+                if not _same(row[column], value):
                     pending.append(("champion_skins", key, column, value))
 
         recorded = database.execute("SELECT value FROM meta WHERE key = ?", (META_SNAPSHOT_KEY,)).fetchone()
@@ -264,6 +293,14 @@ def sync_release_database(database_path: Path, snapshot_path: Path) -> SyncRepor
             if table == "champions":
                 database.execute(f"UPDATE champions SET {column} = ? WHERE key = ?", (value, key))
                 champion_keys.add(key)
+            elif column == "__insert__":
+                name, flag, count = value
+                database.execute(
+                    "INSERT INTO champion_skins (champion_key, num, name, chromas, chroma_count) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (key[0], key[1], name, flag, count),
+                )
+                skin_keys.add(key)
             else:
                 database.execute(
                     f"UPDATE champion_skins SET {column} = ? WHERE champion_key = ? AND num = ?",

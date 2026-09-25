@@ -177,6 +177,20 @@ class DbSyncTests(unittest.TestCase):
         self.assertEqual(len(report.added_columns), len(NEW_COLUMNS))
         self.assertFalse(report.clean)
 
+    def test_applies_balance_patch_to_base_stats(self) -> None:
+        """平衡补丁改基础值/成长值（16.19 的菲兹们）时，库要跟着走。"""
+        champions = [self.champion(key="114", id="Fiora", name="菲奥娜", hp=600, hp_per_level=99)]
+        self.build_legacy_database(champions)
+        self.write_snapshot([self.champion(key="114", id="Fiora", name="菲奥娜", hp=600, hp_per_level=105)])
+
+        report = sync_release_database(self.database, self.snapshot)
+
+        self.assertTrue(report.clean, report.drift)
+        self.assertEqual(report.updated_columns.get("hp_per_level"), 1)
+        with closing(sqlite3.connect(self.database)) as connection:
+            value = connection.execute("SELECT hp_per_level FROM champions WHERE key = '114'").fetchone()[0]
+        self.assertEqual(value, 105)
+
     def test_refuses_a_snapshot_from_another_patch(self) -> None:
         self.build_legacy_database([self.champion()], version="16.18.1")
         self.write_snapshot([self.champion()], version="16.19.1")
