@@ -37,37 +37,7 @@ npm run build   # Writes dist/
 
 ## Deployment
 
-Merging to `main` triggers the `Deploy` workflow: run `npm run ci`, then publish to the Cloudflare
-Worker `lol-atlas` with `wrangler deploy`. Pushing a `v*` (application) or `patch-*` (data) tag also
-publishes and does two extra things: it validates that the tag matches the `package.json` version
-(`tag:validate`) and produces an artifact with a GitHub release. The artifact is produced before
-publishing, so a missing credential still leaves a downloadable build behind. To re-publish an
-existing release, run `Deploy` manually from the Actions tab.
-
-A data release needs its files staged under `data/releases/<version>/` and committed first —
-`tag:validate` checks the `manifest.json` inside it:
-
-```bash
-python -m pip install -e pipeline        # Once, to get the lol-atlas-data command
-lol-atlas-data build-snapshot <version> --previous data/releases/<old>/lol.json
-node scripts/enrich-champion-stats.mjs   # Fill growth values and unit geometry from CommunityDragon
-python -m pip install -e pipeline        # Once, to get the lol-atlas-data command
-lol-atlas-data sync-db data/releases/<version>/lol.db public/data/lol.json
-npm run release:manifest                 # Write manifest.json (with sha256) from public/data/lol.json
-git add data/releases/<version> public/data/lol.json
-```
-
-`enrich-champion-stats.mjs` is not optional: ddragon currently reports an attack damage growth of 0 for
-every champion, so releasing straight from it ships a roster of zeros (`data:validate` rejects it).
-`build-snapshot` prints everything that needs manual attention: spell text fallbacks (the
-Tencent-enhanced source stopped working in 16.19; spells whose text changed fall back to ddragon and are
-listed), new champions (no wiki), and new items (categories pending).
-
-`sync-db` carries the fields those patch scripts add into the published sqlite mirror. It deliberately
-does *not* rebuild the database: the mirror holds columns the snapshot does not carry (per-level
-cooldowns, costs and ranges), and a rebuild would silently drop them. It is idempotent — nothing is
-written when nothing changed. `lol-atlas-data verify-db <db> <snapshot>` checks without writing, and
-the CI pipeline job runs the same assertions.
+Merging to `main` deploys the site. Application and data releases use `vX.Y.Z` and `patch-X.Y.Z` tags; their validation, artifacts, and GitHub Release behavior differ. Data releases require a SQLite database matching the patch. See the [release and deployment guide](docs/DEPLOYMENT.en.md) for the full workflow and current repository limitations.
 
 The workflow needs two repository secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 

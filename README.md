@@ -37,32 +37,7 @@ npm run build   # 产出 dist/
 
 ## 部署
 
-合并到 `main` 会触发 `Deploy` 工作流：跑 `npm run ci` → `wrangler deploy` 发布到 Cloudflare Worker
-`lol-atlas`。推送 `v*`（应用版本）或 `patch-*`（数据版本）标签同样会发布，并额外做两件事：校验
-标签与 `package.json` 的版本一致（`tag:validate`），以及产出带 GitHub Release 的 artifact。
-artifact 先于发布产出，所以凭据缺失时仍留有可下载的构建。重新发布一个已有版本，在 Actions 里
-手动运行 `Deploy`。
-
-数据版本需要先把 `data/releases/<version>/` 落地并提交，`tag:validate` 会检查其中的 `manifest.json`：
-
-```bash
-python -m pip install -e pipeline        # 只需要一次，提供 lol-atlas-data 命令
-lol-atlas-data build-snapshot <新版本> --previous data/releases/<旧版本>/lol.json
-node scripts/enrich-champion-stats.mjs   # 从 CommunityDragon 补成长值与单位几何（可重复执行）
-python -m pip install -e pipeline        # 只需要一次，提供 lol-atlas-data 命令
-lol-atlas-data sync-db data/releases/<version>/lol.db public/data/lol.json
-npm run release:manifest                 # 依据 public/data/lol.json 生成 manifest.json（记录 sha256）
-git add data/releases/<version> public/data/lol.json
-```
-
-`enrich-champion-stats.mjs` 不能跳过：ddragon 在当前版本把全部英雄的攻击力成长写成 0，直接用它发版
-会得到一组全为 0 的成长值（`data:validate` 会拦下）。
-`build-snapshot` 会报告需要人工注意的事项：技能文本回退（腾讯增强源 16.19 起不可程序化获取，
-文本有变动的技能会回退 ddragon 并列出）、新英雄（wiki 为空）、新物品（categories 待归类）。
-
-`sync-db` 把补丁脚本新增的字段同步进发布用的 sqlite 库，**不做全量重建** —— 库里有快照不携带的列
-（技能各级冷却 / 消耗 / 射程），重建会静默丢掉它们。它幂等：没有变化就不写文件。
-`lol-atlas-data verify-db <db> <snapshot>` 可只核对不写入，CI 的 pipeline 任务也跑同一套断言。
+合并到 `main` 会触发站点部署。应用版本和数据补丁分别使用 `vX.Y.Z` 与 `patch-X.Y.Z` 标签；两种标签的校验、artifact 和 GitHub Release 行为不同。数据发布依赖匹配补丁版本的 SQLite 库，完整步骤及仓库当前限制见[发布与部署说明](docs/DEPLOYMENT.md)。
 
 工作流需要 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID` 两个 repository secret。
 
