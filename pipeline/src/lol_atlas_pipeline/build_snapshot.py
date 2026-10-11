@@ -167,6 +167,7 @@ class BuildReport:
     """构建报告：需要人工注意的事项都列在这里。"""
 
     spell_fallbacks: list[str] = field(default_factory=list)
+    spell_kept: int = 0
     new_champions: list[str] = field(default_factory=list)
     new_items: list[str] = field(default_factory=list)
     removed_items: list[str] = field(default_factory=list)
@@ -277,7 +278,9 @@ def build_champions(sources: dict, version: str, previous: dict | None, report: 
         # 技能：文本门控 —— ddragon 文本没变就继承上一版的增强文本
         previous_spells = {s["slot"]: s for s in prev["spells"]} if prev else {}
         old_entry = previous_full.get(champion_id, {})
-        old_spells = {s["id"][len(champion_id):].upper(): s for s in old_entry.get("spells", [])}
+        # 旧技能按位置对齐（QWER 顺序固定）。不能用 id 前缀切槽位 —— zh_CN 的技能
+        # id 是技能名（Pulverize），只有个别恰好长得像 英雄ID+槽位（AlistarE）
+        old_spells = old_entry.get("spells", [])
         old_passive = old_entry.get("passive", {})
         image_base = f"https://ddragon.leagueoflegends.com/cdn/{version}/img"
 
@@ -294,6 +297,7 @@ def build_champions(sources: dict, version: str, previous: dict | None, report: 
 
         for index, dd_spell in enumerate(entry["spells"]):
             slot = "QWER"[index]
+            old_dd_spell = old_spells[index] if index < len(old_spells) else {}
             image_full = dd_spell["image"]["full"]
             spell = {
                 "slot": slot, "name": dd_spell["name"],
@@ -303,8 +307,12 @@ def build_champions(sources: dict, version: str, previous: dict | None, report: 
                 "icon_url": f"{image_base}/spell/{image_full}",
             }
             _gate_spell_text(spell, strip_tags(dd_spell["description"]),
-                             old_strip(old_spells.get(slot, {}).get("description")),
-                             previous_spells.get(slot), report, champion_id, slot)
+                             old_strip(old_dd_spell.get("description")),
+                             previous_spells.get(slot), report, champion_id, slot,
+                             numeric_same=all(
+                                 old_dd_spell.get(burn) == dd_spell.get(burn)
+                                 for burn in ("cooldownBurn", "costBurn", "effectBurn", "rangeBurn")
+                             ))
             champion["spells"].append(spell)
 
         # 皮肤：parentSkin 折叠成 chroma_count，按 num 排序
@@ -329,9 +337,20 @@ def old_strip(text: str | None) -> str:
 
 
 def _gate_spell_text(spell: dict, new_text: str, old_text: str | None, previous_spell: dict | None,
-                     report: BuildReport, champion_id: str, slot: str) -> None:
-    """技能文本门控：ddragon 文本未变 → 继承上一版增强文本；变了 → 回退 ddragon 并报告。"""
+                     report: BuildReport, champion_id: str, slot: str,
+                     numeric_same: bool | None = None) -> None:
+    """技能文本门控。
+
+    - ddragon 文本未变 → 继承上一版增强文本。
+    - 文本变了但**数值没变**（cooldown/cost/effect/range 的 burn 字段一致）→ 判定为
+      官方文案翻新，保留上一版增强文本（16.20 就是一次全量翻新，692 个技能里只有
+      4 个真数值变动；按文本回退会把全站的【】数值标注都丢掉）。
+    - 数值变了（或无法判定）→ 回退 ddragon 并报告，人工补数值。
+    """
     inherited = previous_spell and old_text is not None and old_text == new_text
+    if not inherited and previous_spell is not None and old_text is not None and numeric_same:
+        inherited = True
+        report.spell_kept += 1
     if inherited:
         for field in ("description", "values", "source"):
             if field in previous_spell:
@@ -377,7 +396,8 @@ def parse_stats_block(source: dict) -> dict[str, float]:
     return values
 
 
-def build_items(sources: dict, version: str, previous: dict | None, report: BuildReport) -> list[dict]:
+def build_items(sources: dict, version: str, previous: dict | None, report: BuildReport,
+                admitted: frozenset[str] = frozenset()) -> list[dict]:
     zh_items = sources["ddragon"]["zh_CN/item"]["data"]
     previous_items = {i["id"]: i for i in previous["items"]} if previous else {}
     items = []
@@ -389,11 +409,17 @@ def build_items(sources: dict, version: str, previous: dict | None, report: Buil
             items.append(prev)
             report.notes.append(f"物品 {item_id} {prev['name']} 在 {version} 的 ddragon 数据为空，沿用上一版")
             continue
+        # 上一版没有的物品：默认**不收录**，只报告 —— ddragon 的地图位分不清 SR 商店与
+        # 模式商店（Swiftplay 在 SR 地图上启用 ARAM 起始装、Arena 棱彩装备也标 SR），
+        # 16.20 就混进来 18 个守护者号角/阿塔玛的清算之类的模式条目。
+        # 收录走 --admit-items 显式放行（16.20 实测：SR 商店本次没有新装备，放行的 18 个
+        # 全是 Swiftplay/Arena/ARAM 模式条目，wiki 逐一验过：守护者号角=ARAM、阿塔玛的清算=Arena）
         if prev is None and previous is not None:
-            # 上一版没有的物品：只收录在售的峡谷装备，categories 留空待人工归类
-            if not (str(source["maps"].get("11")) == "True" and source["gold"]["purchasable"]):
+            if item_id in admitted:
+                report.new_items.append(f"{item_id} {source['name']}（已放行收录，categories 待人工归类）")
+            else:
+                report.notes.append(f"物品 {item_id} {source['name']} 未收录（模式物品候选，--admit-items 显式放行）")
                 continue
-            report.new_items.append(f"{item_id} {source['name']}")
 
         icon_full = source["image"]["full"]
         components = prev.get("components", []) if prev else []
@@ -406,7 +432,9 @@ def build_items(sources: dict, version: str, previous: dict | None, report: Buil
             "description": html_to_text(source["description"]),
             "tags": source.get("tags", []),
             "tags_zh": [ITEM_TAG_ZH.get(t, t) for t in source.get("tags", [])],
-            "tier": item_tier(bool(source.get("from")), bool(source.get("into"))),
+            # tier 从**入库的合成关系**推导，不能从 ddragon 原始 from/into —— 那里面混着
+            # Swiftplay/Arena 的并行条目（如 2526 的 into 含 322526），会把成品算成史诗
+            "tier": item_tier(bool(components), bool(builds_into)),
             "maps": json.dumps(source.get("maps", {})),
             "available_sr": 1 if str(source["maps"].get("11")) == "True" else 0,
             "gold_base": source["gold"]["base"],
@@ -596,7 +624,8 @@ def diff_timeline(previous: dict, built: dict, version: str) -> dict:
     return timeline
 
 
-def build_snapshot(version: str, previous_path: Path | None) -> tuple[dict, BuildReport]:
+def build_snapshot(version: str, previous_path: Path | None,
+                   admitted: frozenset[str] = frozenset()) -> tuple[dict, BuildReport]:
     """构建一份完整快照。previous 为上一版快照（技能文本/wiki/timeline/categories 的来源）。"""
     previous = None
     if previous_path is not None:
@@ -607,7 +636,7 @@ def build_snapshot(version: str, previous_path: Path | None) -> tuple[dict, Buil
     report = BuildReport()
 
     champions = build_champions(sources, version, previous, report)
-    items = build_items(sources, version, previous, report)
+    items = build_items(sources, version, previous, report, admitted)
     trees = build_runes(sources, version)
     stat_mods = build_stat_mods(sources, previous, report)
     summoner = build_summoner(sources, version, previous, report)
@@ -647,9 +676,11 @@ def main() -> None:
     parser.add_argument("version", help="目标补丁版本，如 16.19.1")
     parser.add_argument("--previous", type=Path, default=None, help="上一版快照路径（缺省 = 从零构建，技能文本回退 ddragon）")
     parser.add_argument("--out", type=Path, default=None, help="输出目录（默认 data/releases/<版本>）")
+    parser.add_argument("--admit-items", default="", help="显式放行收录的新物品 ID，逗号分隔（缺省：新物品只报告不收录）")
     args = parser.parse_args()
 
-    snapshot, report = build_snapshot(args.version, args.previous)
+    admitted = frozenset(filter(None, (x.strip() for x in args.admit_items.split(","))))
+    snapshot, report = build_snapshot(args.version, args.previous, admitted)
     out_dir = args.out or (ROOT / "data" / "releases" / args.version)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "lol.json").write_text(json.dumps(snapshot, ensure_ascii=False), encoding="utf-8")
@@ -660,8 +691,10 @@ def main() -> None:
         print(f"⚠ {len(report.spell_fallbacks)} 个技能文本回退到 ddragon（腾讯源已不可得），需人工补数值：")
         for line in report.spell_fallbacks:
             print("   ", line)
+    if report.spell_kept:
+        print(f"文案翻新但数值未变的技能 {report.spell_kept} 个：保留上一版增强文本")
     if report.new_items:
-        print("新物品:", "; ".join(report.new_items), "（categories 待人工归类）")
+        print("新物品:", "; ".join(report.new_items))
     if report.removed_items:
         print("已移除物品:", "; ".join(report.removed_items))
     if report.new_skins:
